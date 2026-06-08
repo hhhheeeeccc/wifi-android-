@@ -1,32 +1,35 @@
-# مدير بث الواي فاي والتحكم (WiFi Hotspot Manager & Controller)
+# مدير بث الواي فاي (WiFi Hotspot Manager) - React Native Version
 
-تطبيق أندرويد يتيح للمستخدمين بث شبكة واي فاي (Hotspot) والتحكم الكامل في الأجهزة المتصلة من حيث سعة البيانات والسرعة والحظر.
+تطبيق أندرويد تم تحويله إلى **React Native** لتقديم أفضل تجربة مستخدم مع الحفاظ على الأداء العالي والتحكم في موارد النظام.
 
-An Android application that allows users to create a WiFi hotspot and fully control connected devices, including data limits, speed limits, and blocking.
-
-## لقطة شاشة للتطبيق (App Screenshot)
-
-![واجهة التطبيق](https://lh3.googleusercontent.com/aida/AP1WRLtDhEWPhjfAXfuEFzAq-2YToNV8Z_hPZzlXpWCk35lxRQuIUzDjqEx16KCj_zfDco4AATV3tQ5u1bXGrlaLusir3bMrlMwsFK3nlP42Pfl-wAtyftyJTVJdyjbmBmMX_bt_ihpSE0lwMEltSHvG-QVvfGEetiE9mFlabR5wXaz2XYG3yerU51gLuULxKj23KOqQQwGf7S842kCcJpq1UC_E9UQ3ORNl-R8cvot0UOsmgeCHNS13iS0xfF8)
-
-## الحلول المتاحة للهواتف الحديثة (Solutions for Modern Android)
-
-بسبب قيود أندرويد 8.0+، يوفر التطبيق حلين لمشاركة الإنترنت:
-1. **وضع الـ Root**: إذا كان هاتفك يحتوي على Root، سيقوم التطبيق بالتحكم الكامل تلقائياً.
-2. **وضع البروكسي (No-Root Proxy)**: إذا لم يكن لديك Root، يمكنك تفعيل "وضع البروكسي" داخل التطبيق واتباع التعليمات التي ستظهر لربط الأجهزة الأخرى ومشاركة الإنترنت معها.
+An Android application converted to **React Native** for a better user experience and high-performance system control.
 
 ## المميزات (Features)
 
-- **واجهة عربية (Arabic Interface)**: دعم كامل للغة العربية واتجاه RTL.
-- **بث الواي فاي (WiFi Hotspot)**: تفعيل وإيقاف نقطة الاتصال بسهولة.
-- **تحديد البيانات والسرعة**: التحكم في استهلاك كل متصل.
-- **الحظر (Blocking)**: منع أي جهاز من الوصول للإنترنت.
+- **واجهة عصرية**: مبنية باستخدام React Native مع دعم كامل للغة العربية واتجاه RTL.
+- **Native Bridge**: ربط الكود البرمجي بـ Native Modules للتحكم المباشر في إعدادات الواي فاي.
+- **إدارة كاملة**: تفعيل البث، تخصيص الاسم والرمز، ومراقبة الأجهزة المتصلة.
+- **دعم كافة الحالات**: التعامل مع الهواتف التي تحتوي على Root والتي لا تحتوي عليه.
 
-## كيفية الحصول على التطبيق (How to Get the APK)
+## لقطة شاشة (Screenshot)
+![واجهة التطبيق](https://lh3.googleusercontent.com/aida/AP1WRLtDhEWPhjfAXfuEFzAq-2YToNV8Z_hPZzlXpWCk35lxRQuIUzDjqEx16KCj_zfDco4AATV3tQ5u1bXGrlaLusir3bMrlMwsFK3nlP42Pfl-wAtyftyJTVJdyjbmBmMX_bt_ihpSE0lwMEltSHvG-QVvfGEetiE9mFlabR5wXaz2XYG3yerU51gLuULxKj23KOqQQwGf7S842kCcJpq1UC_E9UQ3ORNl-R8cvot0UOsmgeCHNS13iS0xfF8)
 
-بما أن هذا المستودع يحتوي على **الكود المصدري (Source Code)**، يجب عليك بناء التطبيق لإنتاج ملف الـ APK الخاص بك:
-1. افتح المشروع في **Android Studio**.
-2. اذهب إلى `Build` > `Build APKs`.
-3. انقل ملف `app-debug.apk` لهاتفك وقم بتثبيته.
+## كيفية التشغيل (How to Run)
+
+1. قم بتثبيت التبعيات:
+   ```bash
+   npm install
+   ```
+2. تشغيل التطبيق على الأندرويد:
+   ```bash
+   npx react-native run-android
+   ```
+
+## هيكلية المشروع (Architecture)
+
+- `App.js`: الملف الرئيسي للواجهة والمنطق.
+- `android/app/src/main/java/...`: تحتوي على الـ Native Modules للتحكم في الواي فاي.
+- `package.json`: تكوين المشروع والتبعيات.
 
 ---
-**ملاحظة:** تم تصميم التطبيق ليكون أداة قوية للإدارة والتحكم في شبكات الواي فاي الشخصية.
+تم التحويل إلى React Native لتسهيل التطوير المستقبلي وتحسين سرعة الاستجابة.

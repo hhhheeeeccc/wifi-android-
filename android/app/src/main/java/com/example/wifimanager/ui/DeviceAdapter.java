@@ -1,4 +1,4 @@
-package com.example.wifimanager;
+package com.example.wifimanager.ui;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,10 +8,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import com.example.wifimanager.R;
+import com.example.wifimanager.model.Device;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.ViewHolder> {
-    private List<Device> devices;
+    private List<Device> devices = new ArrayList<>();
     private OnDeviceActionListener listener;
 
     public interface OnDeviceActionListener {
@@ -20,9 +23,13 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.ViewHolder
         void onSpeedLimit(Device device);
     }
 
-    public DeviceAdapter(List<Device> devices, OnDeviceActionListener listener) {
-        this.devices = devices;
+    public DeviceAdapter(OnDeviceActionListener listener) {
         this.listener = listener;
+    }
+
+    public void setDevices(List<Device> newDevices) {
+        this.devices = newDevices;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -39,7 +46,6 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.ViewHolder
         holder.deviceDetails.setText("IP: " + device.getIpAddress() + " | MAC: " + device.getMacAddress());
 
         holder.btnBlock.setText(device.isBlocked() ? "إلغاء الحظر" : "حظر");
-
         holder.btnBlock.setOnClickListener(v -> listener.onBlock(device));
         holder.btnLimit.setOnClickListener(v -> listener.onLimit(device));
         holder.btnSpeed.setOnClickListener(v -> listener.onSpeedLimit(device));

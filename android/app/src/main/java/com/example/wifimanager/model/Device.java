@@ -1,12 +1,12 @@
-package com.example.wifimanager;
+package com.example.wifimanager.model;
 
 public class Device {
-    private String ipAddress;
-    private String macAddress;
+    private final String ipAddress;
+    private final String macAddress;
     private String deviceName;
-    private long dataLimit; // in MB
-    private long usedData; // in MB
-    private int speedLimit; // in KB/s
+    private long dataLimit;
+    private long usedData;
+    private int speedLimit;
     private boolean isBlocked;
 
     public Device(String ipAddress, String macAddress, String deviceName) {
@@ -19,10 +19,10 @@ public class Device {
         this.isBlocked = false;
     }
 
-    // Getters and Setters
     public String getIpAddress() { return ipAddress; }
     public String getMacAddress() { return macAddress; }
     public String getDeviceName() { return deviceName; }
+    public void setDeviceName(String deviceName) { this.deviceName = deviceName; }
     public long getDataLimit() { return dataLimit; }
     public void setDataLimit(long dataLimit) { this.dataLimit = dataLimit; }
     public long getUsedData() { return usedData; }
