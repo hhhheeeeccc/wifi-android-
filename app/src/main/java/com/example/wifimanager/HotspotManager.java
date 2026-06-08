@@ -19,9 +19,9 @@ public class HotspotManager {
         this.wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
 
-    public boolean setHotspotEnabled(boolean enabled) {
+    public boolean setHotspotEnabled(boolean enabled, String ssid, String password) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Programmatic control is restricted on Android 8.0+
+            // Restrictions on Android 8.0+
             Log.d("HotspotManager", "Android 8.0+ detected. Redirecting to settings.");
             return false;
         } else {
@@ -29,8 +29,24 @@ public class HotspotManager {
                 if (enabled) {
                     wifiManager.setWifiEnabled(false);
                 }
+
+                WifiConfiguration wifiConfig = new WifiConfiguration();
+                wifiConfig.SSID = ssid;
+                if (password != null && password.length() >= 8) {
+                    wifiConfig.preSharedKey = password;
+                    wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
+                    wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
+                    wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+                    wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
+                    wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
+                    wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
+                    wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
+                } else {
+                    wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                }
+
                 Method method = wifiManager.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
-                return (Boolean) method.invoke(wifiManager, null, enabled);
+                return (Boolean) method.invoke(wifiManager, wifiConfig, enabled);
             } catch (Exception e) {
                 Log.e("HotspotManager", "Error setting hotspot", e);
                 return false;
@@ -45,7 +61,6 @@ public class HotspotManager {
         try {
             context.startActivity(intent);
         } catch (Exception e) {
-            // Fallback to general settings
             context.startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
     }

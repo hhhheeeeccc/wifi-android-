@@ -11,6 +11,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -23,6 +24,7 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
     private List<Device> connectedDevices;
     private TextView statusLabel;
     private Button toggleButton;
+    private TextInputEditText ssidInput, passwordInput;
     private Handler handler = new Handler();
 
     @Override
@@ -36,6 +38,8 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
 
         statusLabel = findViewById(R.id.statusLabel);
         toggleButton = findViewById(R.id.toggleHotspot);
+        ssidInput = findViewById(R.id.ssidInput);
+        passwordInput = findViewById(R.id.passwordInput);
         RecyclerView recyclerView = findViewById(R.id.devicesRecyclerView);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -46,14 +50,22 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
         toggleButton.setOnClickListener(v -> {
             boolean currentState = hotspotManager.isHotspotEnabled();
             if (!currentState) {
-                if (hotspotManager.setHotspotEnabled(true)) {
+                String ssid = ssidInput.getText().toString();
+                String password = passwordInput.getText().toString();
+
+                if (password.length() > 0 && password.length() < 8) {
+                    Toast.makeText(this, getString(R.string.password_error), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (hotspotManager.setHotspotEnabled(true, ssid, password)) {
                     updateUI();
                 } else {
                     Toast.makeText(this, getString(R.string.hotspot_manual_instruction), Toast.LENGTH_LONG).show();
                     hotspotManager.openHotspotSettings();
                 }
             } else {
-                hotspotManager.setHotspotEnabled(false);
+                hotspotManager.setHotspotEnabled(false, null, null);
                 updateUI();
             }
         });
