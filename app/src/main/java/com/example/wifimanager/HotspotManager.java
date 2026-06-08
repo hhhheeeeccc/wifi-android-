@@ -17,13 +17,17 @@ public class HotspotManager {
         this.wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
 
+    /**
+     * تفعيل أو إيقاف نقطة الاتصال.
+     * ملاحظة: في الإصدارات الأحدث من أندرويد (8.0+)، يتطلب التحكم الكامل في نقطة الاتصال
+     * أن يكون التطبيق من تطبيقات النظام أو لديه صلاحيات خاصة.
+     */
     public boolean setHotspotEnabled(boolean enabled) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // For Android 8.0+, we usually use ConnectivityManager.startLocalOnlyHotspot
-            // However, full control often requires system app or root.
-            Log.d("HotspotManager", "Enable hotspot for Oreo+ called");
-            // This is a simplified representation
-            return true;
+            // لنظام أندرويد 8.0 فما فوق، التفعيل البرمجي المباشر مقيد لأسباب أمنية.
+            // يفضل توجيه المستخدم لإعدادات النظام أو استخدام API خاص إذا كان التطبيق سيُوقع كـ System App.
+            Log.d("HotspotManager", "Android 8.0+ detected. Manual intervention or system privileges required.");
+            return false;
         } else {
             try {
                 if (enabled) {
@@ -42,7 +46,8 @@ public class HotspotManager {
         try {
             Method method = wifiManager.getClass().getDeclaredMethod("getWifiApState");
             int state = (Integer) method.invoke(wifiManager);
-            return state == 13; // 13 is WIFI_AP_STATE_ENABLED
+            // WIFI_AP_STATE_ENABLING = 12, WIFI_AP_STATE_ENABLED = 13
+            return state == 13 || state == 12;
         } catch (Exception e) {
             return false;
         }
