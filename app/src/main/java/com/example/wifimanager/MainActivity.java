@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
     private DeviceAdapter deviceAdapter;
     private List<Device> connectedDevices;
     private TextView statusLabel;
-    private Button toggleButton;
+    private Button toggleButton, localOnlyBtn;
     private TextInputEditText ssidInput, passwordInput;
     private Handler handler = new Handler();
 
@@ -38,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
 
         statusLabel = findViewById(R.id.statusLabel);
         toggleButton = findViewById(R.id.toggleHotspot);
+        localOnlyBtn = findViewById(R.id.localOnlyBtn);
         ssidInput = findViewById(R.id.ssidInput);
         passwordInput = findViewById(R.id.passwordInput);
         RecyclerView recyclerView = findViewById(R.id.devicesRecyclerView);
@@ -48,14 +49,17 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
         updateUI();
 
         toggleButton.setOnClickListener(v -> {
-            boolean currentState = hotspotManager.isHotspotEnabled();
-            if (!currentState) {
+            if (!hotspotManager.isHotspotEnabled()) {
                 String ssid = ssidInput.getText().toString();
                 String password = passwordInput.getText().toString();
 
                 if (password.length() > 0 && password.length() < 8) {
                     Toast.makeText(this, getString(R.string.password_error), Toast.LENGTH_SHORT).show();
                     return;
+                }
+
+                if (RootUtils.isDeviceRooted()) {
+                    Toast.makeText(this, getString(R.string.hotspot_root_instruction), Toast.LENGTH_SHORT).show();
                 }
 
                 if (hotspotManager.setHotspotEnabled(true, ssid, password)) {
@@ -68,6 +72,11 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
                 hotspotManager.setHotspotEnabled(false, null, null);
                 updateUI();
             }
+        });
+
+        localOnlyBtn.setOnClickListener(v -> {
+            hotspotManager.startLocalOnlyHotspot();
+            Toast.makeText(this, "تم تفعيل وضع البث المحلي بنجاح", Toast.LENGTH_SHORT).show();
         });
 
         startDeviceScan();

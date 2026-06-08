@@ -9,8 +9,10 @@
     <string name="no_devices">لا يوجد أجهزة متصلة</string>
     <string name="status_active">نشط</string>
     <string name="status_inactive">غير نشط</string>
-    <string name="hotspot_manual_instruction">يرجى تفعيل نقطة الاتصال يدوياً من الإعدادات. ملاحظة: قد تحتاج لضبط الاسم والرمز يدوياً في بعض الأجهزة.</string>
+    <string name="hotspot_manual_instruction">يرجى تفعيل نقطة الاتصال يدوياً. تم الكشف عن أندرويد حديث بدون Root.</string>
+    <string name="hotspot_root_instruction">تم الكشف عن صلاحيات Root. سيتم التفعيل تلقائياً.</string>
     <string name="ssid_hint">اسم الشبكة (WiFi Name)</string>
     <string name="password_hint">كلمة المرور (Password)</string>
     <string name="password_error">يجب أن تكون كلمة المرور 8 أحرف على الأقل</string>
+    <string name="local_only_mode">بث محلي (للملفات فقط)</string>
 </resources>
