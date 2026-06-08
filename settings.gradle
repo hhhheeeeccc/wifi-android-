@@ -1,0 +1,2 @@
+rootProject.name = "WiFiHotspotManager"
+include ':app'

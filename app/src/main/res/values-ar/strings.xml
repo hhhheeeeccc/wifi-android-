@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">بث الإنترنت والتحكم</string>
+    <string name="enable_hotspot">تفعيل نقطة الاتصال</string>
+    <string name="disable_hotspot">إيقاف نقطة الاتصال</string>
+    <string name="connected_devices">الأجهزة المتصلة</string>
+    <string name="limit_data">تحديد البيانات (ميجا)</string>
+    <string name="block_user">حظر المستخدم</string>
+    <string name="speed_limit">تحديد السرعة (كيلوبايت)</string>
+    <string name="no_devices">لا يوجد أجهزة متصلة</string>
+    <string name="status_active">نشط</string>
+    <string name="status_inactive">غير نشط</string>
+</resources>
