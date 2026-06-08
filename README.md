@@ -1,42 +1,39 @@
-# مدير بث الواي فاي والتحكم (WiFi Hotspot Manager) - React Native TypeScript
+# مدير بث الواي فاي والتحكم (WiFi Hotspot Manager) - React Native TypeScript Edition
 
-تطبيق أندرويد متطور مبني باستخدام **React Native** ولغة **TypeScript** لضمان أفضل تجربة مستخدم مع كود برمي نظيف وقوي.
+تطبيق أندرويد متكامل مبني باستخدام **React Native** و **TypeScript**، يتبع نمط **MVVM** لتقديم أفضل تجربة مستخدم وتحكم كامل في موارد النظام باللغة العربية.
 
-An advanced Android application built with **React Native** and **TypeScript**, ensuring a great UX with clean and robust code.
-
-## التقنيات المستخدمة (Tech Stack)
-
-- **React Native**: لبناء واجهة المستخدم عبر المنصات.
-- **TypeScript**: لضمان فحص الأنواع الصارم وتقليل الأخطاء البرمجية.
-- **Native Modules (Java)**: للتحكم المباشر في موارد نظام أندرويد (واي فاي، نقطة اتصال).
-- **Hooks & State Management**: لإدارة حالة التطبيق بشكل حديث (MVVM style).
+An Android application built with **React Native** and **TypeScript**, following the **MVVM pattern** for a professional and robust architecture.
 
 ## المميزات (Features)
 
-- **دعم كامل للغة العربية**: واجهة مستخدم مصممة خصيصاً لتدعم RTL.
-- **تحكم كامل في البث**: ضبط الاسم والرمز بضغطة زر.
-- **وضع البروكسي (Proxy Mode)**: مشاركة الإنترنت في الأجهزة الحديثة التي لا تحتوي على Root.
-- **مراقبة المتصلين**: عرض الأجهزة المتصلة مع خيارات الحظر وتحديد السرعة والبيانات.
+- **دعم TypeScript الكامل**: لضمان استقرار الكود وفحص الأنواع.
+- **واجهة مستخدم عربية (RTL)**: تجربة مستخدم سلسة ومصممة خصيصاً للمستخدم العربي.
+- **Native Bridge (Java)**: التحكم المباشر في إعدادات النظام (الواي فاي، نقطة الاتصال) عبر جسر برمي قوي.
+- **إدارة متطورة (Root & Proxy)**:
+  - تفعيل تلقائي في حالة وجود Root.
+  - وضع البروكسي (Proxy Mode) للأجهزة الحديثة بدون Root لمشاركة الإنترنت.
+- **إدارة المتصلين**: حظر الأجهزة، تحديد السرعة، وتحديد سعة البيانات (ميجا).
 
-## هيكلية المشروع (Project Structure)
+## هيكلية المشروع (Architecture)
 
-- `App.tsx`: المكون الرئيسي للتطبيق.
-- `src/models/`: تعريف أنواع البيانات والواجهات.
-- `src/viewmodels/`: إدارة منطق الواجهة (Hooks).
+تم تقسيم المشروع لاتباع أفضل الممارسات:
+- `App.tsx`: المكون الرئيسي للواجهة.
+- `src/models/`: تعريف أنواع البيانات والواجهات (TypeScript Interfaces).
+- `src/viewmodels/`: إدارة منطق التطبيق وحالته (Custom Hooks).
 - `src/components/`: مكونات الواجهة القابلة لإعادة الاستخدام.
-- `app/src/main/java/...`: كود أندرويد الأصلي للتحكم في النظام.
+- `android/`: يحتوي على الكود الأصلي (Java) والـ Native Modules.
 
-## كيفية التشغيل (Getting Started)
+## المتطلبات والتشغيل (Setup)
 
-1. تأكد من تثبيت بيئة React Native على جهازك.
-2. قم بتثبيت التبعيات:
+1. تأكد من تثبيت **Node.js** و **Android Studio**.
+2. تثبيت التبعيات:
    ```bash
    npm install
    ```
-3. تشغيل التطبيق على محاكي أو جهاز حقيقي:
+3. تشغيل التطبيق:
    ```bash
    npx react-native run-android
    ```
 
 ---
-تم تطوير هذا المشروع ليكون مثالاً يحتذى به في استخدام TypeScript مع React Native للتحكم في خصائص النظام المتقدمة.
+تم تطوير هذا المشروع ليكون تطبيقاً احترافياً يجمع بين سرعة React Native وقوة Android الأصلية.

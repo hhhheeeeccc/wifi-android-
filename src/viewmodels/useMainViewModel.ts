@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NativeModules, Alert, I18nManager } from 'react-native';
+import { NativeModules, Alert, I18nManager, NativeEventEmitter } from 'react-native';
 import { Device, HotspotState } from '../models/types';
 
 const { WiFiModule } = NativeModules;
+const WiFiEvents = new NativeEventEmitter(WiFiModule);
 
 export const useMainViewModel = () => {
   const [state, setState] = useState<HotspotState>({
@@ -14,9 +15,16 @@ export const useMainViewModel = () => {
 
   const [devices, setDevices] = useState<Device[]>([]);
 
-  // Force RTL for Arabic
   useEffect(() => {
     I18nManager.forceRTL(true);
+
+    const subscription = WiFiEvents.addListener('onDevicesUpdated', (newDevices: Device[]) => {
+      setDevices(newDevices);
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const toggleHotspot = useCallback(async () => {
@@ -42,6 +50,7 @@ export const useMainViewModel = () => {
   const setPassword = (password: string) => setState(prev => ({ ...prev, password }));
 
   const blockDevice = (deviceId: string) => {
+    // In a real app, this would call WiFiModule.blockDevice(deviceId)
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, isBlocked: !d.isBlocked } : d));
   };
 

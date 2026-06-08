@@ -3,37 +3,13 @@ package com.example.wifimanager.repository;
 import android.content.Context;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.utils.HotspotManager;
-import com.example.wifimanager.utils.ProxyManager;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 
 public class HotspotRepository {
-    private final HotspotManager hotspotManager;
-    private final ProxyManager proxyManager;
-
-    public HotspotRepository(Context context) {
-        this.hotspotManager = new HotspotManager(context);
-        this.proxyManager = new ProxyManager();
-    }
-
-    public boolean toggleHotspot(boolean enable, String ssid, String password) {
-        return hotspotManager.setHotspotEnabled(enable, ssid, password);
-    }
-
-    public void toggleProxy(boolean enable) {
-        if (enable) proxyManager.startProxy();
-        else proxyManager.stopProxy();
-    }
-
-    public boolean isHotspotActive() {
-        return hotspotManager.isHotspotEnabled();
-    }
-
-    public void openSettings() {
-        hotspotManager.openHotspotSettings();
-    }
+    public HotspotRepository(Context context) {}
 
     public List<Device> getConnectedDevices() {
         List<Device> devices = new ArrayList<>();
