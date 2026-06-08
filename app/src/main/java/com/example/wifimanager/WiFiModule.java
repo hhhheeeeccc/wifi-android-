@@ -24,7 +24,7 @@ public class WiFiModule extends ReactContextBaseJavaModule {
         if (hotspotManager.setHotspotEnabled(enabled, ssid, password)) {
             promise.resolve(true);
         } else {
-            promise.reject("ERR_HOTSPOT", "Failed to set hotspot");
+            promise.reject("ERR_HOTSPOT", "Failed to toggle hotspot");
         }
     }
 

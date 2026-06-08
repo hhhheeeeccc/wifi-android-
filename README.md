@@ -1,35 +1,42 @@
-# مدير بث الواي فاي (WiFi Hotspot Manager) - React Native Version
+# مدير بث الواي فاي والتحكم (WiFi Hotspot Manager) - React Native TypeScript
 
-تطبيق أندرويد تم تحويله إلى **React Native** لتقديم أفضل تجربة مستخدم مع الحفاظ على الأداء العالي والتحكم في موارد النظام.
+تطبيق أندرويد متطور مبني باستخدام **React Native** ولغة **TypeScript** لضمان أفضل تجربة مستخدم مع كود برمي نظيف وقوي.
 
-An Android application converted to **React Native** for a better user experience and high-performance system control.
+An advanced Android application built with **React Native** and **TypeScript**, ensuring a great UX with clean and robust code.
+
+## التقنيات المستخدمة (Tech Stack)
+
+- **React Native**: لبناء واجهة المستخدم عبر المنصات.
+- **TypeScript**: لضمان فحص الأنواع الصارم وتقليل الأخطاء البرمجية.
+- **Native Modules (Java)**: للتحكم المباشر في موارد نظام أندرويد (واي فاي، نقطة اتصال).
+- **Hooks & State Management**: لإدارة حالة التطبيق بشكل حديث (MVVM style).
 
 ## المميزات (Features)
 
-- **واجهة عصرية**: مبنية باستخدام React Native مع دعم كامل للغة العربية واتجاه RTL.
-- **Native Bridge**: ربط الكود البرمجي بـ Native Modules للتحكم المباشر في إعدادات الواي فاي.
-- **إدارة كاملة**: تفعيل البث، تخصيص الاسم والرمز، ومراقبة الأجهزة المتصلة.
-- **دعم كافة الحالات**: التعامل مع الهواتف التي تحتوي على Root والتي لا تحتوي عليه.
+- **دعم كامل للغة العربية**: واجهة مستخدم مصممة خصيصاً لتدعم RTL.
+- **تحكم كامل في البث**: ضبط الاسم والرمز بضغطة زر.
+- **وضع البروكسي (Proxy Mode)**: مشاركة الإنترنت في الأجهزة الحديثة التي لا تحتوي على Root.
+- **مراقبة المتصلين**: عرض الأجهزة المتصلة مع خيارات الحظر وتحديد السرعة والبيانات.
 
-## لقطة شاشة (Screenshot)
-![واجهة التطبيق](https://lh3.googleusercontent.com/aida/AP1WRLtDhEWPhjfAXfuEFzAq-2YToNV8Z_hPZzlXpWCk35lxRQuIUzDjqEx16KCj_zfDco4AATV3tQ5u1bXGrlaLusir3bMrlMwsFK3nlP42Pfl-wAtyftyJTVJdyjbmBmMX_bt_ihpSE0lwMEltSHvG-QVvfGEetiE9mFlabR5wXaz2XYG3yerU51gLuULxKj23KOqQQwGf7S842kCcJpq1UC_E9UQ3ORNl-R8cvot0UOsmgeCHNS13iS0xfF8)
+## هيكلية المشروع (Project Structure)
 
-## كيفية التشغيل (How to Run)
+- `App.tsx`: المكون الرئيسي للتطبيق.
+- `src/models/`: تعريف أنواع البيانات والواجهات.
+- `src/viewmodels/`: إدارة منطق الواجهة (Hooks).
+- `src/components/`: مكونات الواجهة القابلة لإعادة الاستخدام.
+- `app/src/main/java/...`: كود أندرويد الأصلي للتحكم في النظام.
 
-1. قم بتثبيت التبعيات:
+## كيفية التشغيل (Getting Started)
+
+1. تأكد من تثبيت بيئة React Native على جهازك.
+2. قم بتثبيت التبعيات:
    ```bash
    npm install
    ```
-2. تشغيل التطبيق على الأندرويد:
+3. تشغيل التطبيق على محاكي أو جهاز حقيقي:
    ```bash
    npx react-native run-android
    ```
 
-## هيكلية المشروع (Architecture)
-
-- `App.js`: الملف الرئيسي للواجهة والمنطق.
-- `android/app/src/main/java/...`: تحتوي على الـ Native Modules للتحكم في الواي فاي.
-- `package.json`: تكوين المشروع والتبعيات.
-
 ---
-تم التحويل إلى React Native لتسهيل التطوير المستقبلي وتحسين سرعة الاستجابة.
+تم تطوير هذا المشروع ليكون مثالاً يحتذى به في استخدام TypeScript مع React Native للتحكم في خصائص النظام المتقدمة.
