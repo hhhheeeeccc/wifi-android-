@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
@@ -20,12 +21,15 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnDeviceActionListener {
     private HotspotManager hotspotManager;
+    private ProxyManager proxyManager;
     private DeviceAdapter deviceAdapter;
     private List<Device> connectedDevices;
     private TextView statusLabel;
-    private Button toggleButton, localOnlyBtn;
+    private Button toggleButton, proxyBtn;
+    private LinearLayout proxyLayout;
     private TextInputEditText ssidInput, passwordInput;
     private Handler handler = new Handler();
+    private boolean isProxyEnabled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,12 +37,14 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
         setContentView(R.layout.activity_main);
 
         hotspotManager = new HotspotManager(this);
+        proxyManager = new ProxyManager();
         connectedDevices = new ArrayList<>();
         deviceAdapter = new DeviceAdapter(connectedDevices, this);
 
         statusLabel = findViewById(R.id.statusLabel);
         toggleButton = findViewById(R.id.toggleHotspot);
-        localOnlyBtn = findViewById(R.id.localOnlyBtn);
+        proxyBtn = findViewById(R.id.proxyBtn);
+        proxyLayout = findViewById(R.id.proxyLayout);
         ssidInput = findViewById(R.id.ssidInput);
         passwordInput = findViewById(R.id.passwordInput);
         RecyclerView recyclerView = findViewById(R.id.devicesRecyclerView);
@@ -58,10 +64,6 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
                     return;
                 }
 
-                if (RootUtils.isDeviceRooted()) {
-                    Toast.makeText(this, getString(R.string.hotspot_root_instruction), Toast.LENGTH_SHORT).show();
-                }
-
                 if (hotspotManager.setHotspotEnabled(true, ssid, password)) {
                     updateUI();
                 } else {
@@ -74,9 +76,18 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
             }
         });
 
-        localOnlyBtn.setOnClickListener(v -> {
-            hotspotManager.startLocalOnlyHotspot();
-            Toast.makeText(this, "تم تفعيل وضع البث المحلي بنجاح", Toast.LENGTH_SHORT).show();
+        proxyBtn.setOnClickListener(v -> {
+            if (!isProxyEnabled) {
+                proxyManager.startProxy();
+                proxyLayout.setVisibility(View.VISIBLE);
+                isProxyEnabled = true;
+                Toast.makeText(this, "تم تفعيل وضع البروكسي"، Toast.LENGTH_SHORT).show();
+            } else {
+                proxyManager.stopProxy();
+                proxyLayout.setVisibility(View.GONE);
+                isProxyEnabled = false;
+                Toast.makeText(this, "تم إيقاف وضع البروكسي"، Toast.LENGTH_SHORT).show();
+            }
         });
 
         startDeviceScan();

@@ -52,12 +52,47 @@
             android:layout_marginBottom="8dp" />
 
         <Button
-            android:id="@+id/localOnlyBtn"
+            android:id="@+id/proxyBtn"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/local_only_mode"
             android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:id="@+id/proxyLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#E3F2FD"
+            android:padding="12dp"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/proxy_info"
+                android:textStyle="bold"
+                android:textColor="#1565C0" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/proxy_host" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/proxy_port" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/proxy_instruction"
+                android:textSize="10sp"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"

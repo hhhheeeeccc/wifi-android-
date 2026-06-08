@@ -14,5 +14,9 @@
     <string name="ssid_hint">اسم الشبكة (WiFi Name)</string>
     <string name="password_hint">كلمة المرور (Password)</string>
     <string name="password_error">يجب أن تكون كلمة المرور 8 أحرف على الأقل</string>
-    <string name="local_only_mode">بث محلي (للملفات فقط)</string>
+    <string name="local_only_mode">بث بدون روت (Proxy Mode)</string>
+    <string name="proxy_info">إعدادات الاتصال للأجهزة الأخرى:</string>
+    <string name="proxy_host">الوكيل (Host): 192.168.43.1</string>
+    <string name="proxy_port">المنفذ (Port): 8080</string>
+    <string name="proxy_instruction">ملاحظة: في الأجهزة المتصلة، يجب الذهاب لإعدادات الواي فاي المتقدمة وضبط البروكسي إلى "يدوي" وإدخال البيانات أعلاه لمشاركة الإنترنت.</string>
 </resources>
