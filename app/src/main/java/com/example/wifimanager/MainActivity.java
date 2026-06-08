@@ -45,10 +45,16 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.OnD
 
         toggleButton.setOnClickListener(v -> {
             boolean currentState = hotspotManager.isHotspotEnabled();
-            if (hotspotManager.setHotspotEnabled(!currentState)) {
-                updateUI();
+            if (!currentState) {
+                if (hotspotManager.setHotspotEnabled(true)) {
+                    updateUI();
+                } else {
+                    Toast.makeText(this, getString(R.string.hotspot_manual_instruction), Toast.LENGTH_LONG).show();
+                    hotspotManager.openHotspotSettings();
+                }
             } else {
-                Toast.makeText(this, "فشل تغيير حالة البث", Toast.LENGTH_SHORT).show();
+                hotspotManager.setHotspotEnabled(false);
+                updateUI();
             }
         });
 

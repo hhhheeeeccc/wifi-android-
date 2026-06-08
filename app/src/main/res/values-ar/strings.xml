@@ -9,4 +9,5 @@
     <string name="no_devices">لا يوجد أجهزة متصلة</string>
     <string name="status_active">نشط</string>
     <string name="status_inactive">غير نشط</string>
+    <string name="hotspot_manual_instruction">يرجى تفعيل نقطة الاتصال يدوياً من الإعدادات بسبب قيود أندرويد.</string>
 </resources>
