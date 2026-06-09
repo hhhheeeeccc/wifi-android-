@@ -1,4 +1,4 @@
-package com.example.wifimanager;
+package com.example.wifimanager.utils;
 
 import android.content.Context;
 import android.content.Intent;
@@ -68,7 +68,7 @@ public class HotspotManager {
         try {
             ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
             if (enabled) {
-                Class<?> callbackClass = Class.forName("android.net.ConnectivityManager$OnStartTetheringCallback");
+                Class<?> callbackClass = Class.forName("android.net.ConnectivityManager");
                 Method method = cm.getClass().getDeclaredMethod("startTethering", int.class, boolean.class, callbackClass, Handler.class);
                 method.setAccessible(true);
                 method.invoke(cm, 0, false, null, new Handler(Looper.getMainLooper()));
@@ -155,6 +155,39 @@ public class HotspotManager {
             return state == 13 || state == 12 || hotspotReservation != null;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    public void blockDevice(String mac, boolean block) {
+        if (!RootUtils.isDeviceRooted()) return;
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            if (block) {
+                os.writeBytes("iptables -I FORWARD -m mac --mac-source " + mac + " -j DROP\n");
+            } else {
+                os.writeBytes("iptables -D FORWARD -m mac --mac-source " + mac + " -j DROP\n");
+            }
+            os.writeBytes("exit\n");
+            os.flush();
+        } catch (Exception e) {
+            Log.e("HotspotManager", "Error blocking device", e);
+        }
+    }
+
+    public void limitSpeed(String mac, int kbps) {
+        if (!RootUtils.isDeviceRooted()) return;
+        // Simplified tc command for speed limiting
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            os.writeBytes("tc qdisc add dev wlan0 root handle 1: htb default 10\n");
+            os.writeBytes("tc class add dev wlan0 parent 1: classid 1:1 htb rate " + kbps + "kbps ceil " + kbps + "kbps\n");
+            os.writeBytes("tc filter add dev wlan0 protocol ip parent 1:0 prio 1 u32 match ip src 0.0.0.0/0 flowid 1:1\n");
+            os.writeBytes("exit\n");
+            os.flush();
+        } catch (Exception e) {
+            Log.e("HotspotManager", "Error limiting speed", e);
         }
     }
 }

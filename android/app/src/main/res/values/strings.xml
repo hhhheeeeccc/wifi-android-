@@ -1,3 +1,22 @@
 <resources>
-    <string name="app_name">WiFi Manager</string>
+    <string name="app_name">WiFi Hotspot Manager</string>
+    <string name="status_inactive">Status: Inactive</string>
+    <string name="status_active">Status: Active</string>
+    <string name="ssid_hint">Network Name (SSID)</string>
+    <string name="password_hint">Password</string>
+    <string name="enable_hotspot">Enable Hotspot</string>
+    <string name="disable_hotspot">Disable Hotspot</string>
+    <string name="local_only_mode">Proxy Mode (No-Root)</string>
+    <string name="proxy_info">Proxy Settings</string>
+    <string name="proxy_host">Host: 192.168.43.1</string>
+    <string name="proxy_port">Port: 8080</string>
+    <string name="proxy_instruction">Manual proxy setup required on connected devices for internet access.</string>
+    <string name="connected_devices">Connected Devices</string>
+    <string name="password_error">Password must be at least 8 characters</string>
+    <string name="limit_data">Limit Data</string>
+    <string name="speed_limit">Speed Limit</string>
+    <string name="block_user">Block Device</string>
+    <string name="hotspot_manual_instruction">Please enable hotspot manually from system settings due to OS restrictions.</string>
+    <string name="hotspot_root_instruction">Hotspot enabled successfully via Root permissions.</string>
+    <string name="no_devices">No devices connected</string>
 </resources>

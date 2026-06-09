@@ -1,2 +1,2 @@
-rootProject.name = "WiFiHotspotManager"
+rootProject.name = "wifimanager"
 include ':app'
