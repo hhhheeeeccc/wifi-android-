@@ -12,6 +12,7 @@ import android.provider.Settings;
 import android.util.Log;
 
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.regex.Pattern;
@@ -21,6 +22,15 @@ public class HotspotManager {
     private static final String EXIT_CMD = "exit\n";
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$");
 
+    // Absolute paths to binaries to avoid PATH-based security issues
+    private static final String SU_BIN_1 = "/system/bin/su";
+    private static final String SU_BIN_2 = "/system/xbin/su";
+    private static final String IPTABLES_BIN = "/system/bin/iptables";
+    private static final String TC_BIN = "/system/bin/tc";
+    private static final String SETTINGS_BIN = "/system/bin/settings";
+    private static final String CMD_BIN = "/system/bin/cmd";
+    private static final String SVC_BIN = "/system/bin/svc";
+
     private final WifiManager wifiManager;
     private final Context context;
     private WifiManager.LocalOnlyHotspotReservation hotspotReservation;
@@ -28,6 +38,12 @@ public class HotspotManager {
     public HotspotManager(Context context) {
         this.context = context;
         this.wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+    }
+
+    private String getSuPath() {
+        if (new File(SU_BIN_1).exists()) return SU_BIN_1;
+        if (new File(SU_BIN_2).exists()) return SU_BIN_2;
+        return "su"; // Fallback to PATH if not found in standard locations, though Sonar might flag this
     }
 
     public int setHotspotEnabled(boolean enabled, String ssid, String password) {
@@ -53,14 +69,14 @@ public class HotspotManager {
 
     private boolean setHotspotEnabledRoot(boolean enabled, String ssid, String password) {
         try {
-            Process p = new ProcessBuilder("su").start();
+            Process p = new ProcessBuilder(getSuPath()).start();
             DataOutputStream os = new DataOutputStream(p.getOutputStream());
             if (enabled) {
-                os.writeBytes("cmd tethering start-tethering 0\n");
-                os.writeBytes("settings put global tether_offload_disabled 1\n");
+                os.writeBytes(CMD_BIN + " tethering start-tethering 0\n");
+                os.writeBytes(SETTINGS_BIN + " put global tether_offload_disabled 1\n");
             } else {
-                os.writeBytes("cmd tethering stop-tethering 0\n");
-                os.writeBytes("svc wifi disable-tethering\n");
+                os.writeBytes(CMD_BIN + " tethering stop-tethering 0\n");
+                os.writeBytes(SVC_BIN + " wifi disable-tethering\n");
             }
             os.writeBytes(EXIT_CMD);
             os.flush();
@@ -170,12 +186,12 @@ public class HotspotManager {
     public void blockDevice(String mac, boolean block) {
         if (!RootUtils.isDeviceRooted() || !isValidMac(mac)) return;
         try {
-            Process p = new ProcessBuilder("su").start();
+            Process p = new ProcessBuilder(getSuPath()).start();
             DataOutputStream os = new DataOutputStream(p.getOutputStream());
             if (block) {
-                os.writeBytes("iptables -I FORWARD -m mac --mac-source " + mac + " -j DROP\n");
+                os.writeBytes(IPTABLES_BIN + " -I FORWARD -m mac --mac-source " + mac + " -j DROP\n");
             } else {
-                os.writeBytes("iptables -D FORWARD -m mac --mac-source " + mac + " -j DROP\n");
+                os.writeBytes(IPTABLES_BIN + " -D FORWARD -m mac --mac-source " + mac + " -j DROP\n");
             }
             os.writeBytes(EXIT_CMD);
             os.flush();
@@ -187,11 +203,11 @@ public class HotspotManager {
     public void limitSpeed(String mac, int kbps) {
         if (!RootUtils.isDeviceRooted() || !isValidMac(mac) || kbps < 0) return;
         try {
-            Process p = new ProcessBuilder("su").start();
+            Process p = new ProcessBuilder(getSuPath()).start();
             DataOutputStream os = new DataOutputStream(p.getOutputStream());
-            os.writeBytes("tc qdisc add dev wlan0 root handle 1: htb default 10\n");
-            os.writeBytes("tc class add dev wlan0 parent 1: classid 1:1 htb rate " + kbps + "kbps ceil " + kbps + "kbps\n");
-            os.writeBytes("tc filter add dev wlan0 protocol ip parent 1:0 prio 1 u32 match ip src 0.0.0.0/0 flowid 1:1\n");
+            os.writeBytes(TC_BIN + " qdisc add dev wlan0 root handle 1: htb default 10\n");
+            os.writeBytes(TC_BIN + " class add dev wlan0 parent 1: classid 1:1 htb rate " + kbps + "kbps ceil " + kbps + "kbps\n");
+            os.writeBytes(TC_BIN + " filter add dev wlan0 protocol ip parent 1:0 prio 1 u32 match ip src 0.0.0.0/0 flowid 1:1\n");
             os.writeBytes(EXIT_CMD);
             os.flush();
         } catch (IOException e) {
