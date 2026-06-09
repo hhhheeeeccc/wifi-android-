@@ -7,6 +7,7 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -16,25 +17,32 @@ import java.lang.reflect.Method;
 public class HotspotManager {
     private final WifiManager wifiManager;
     private final Context context;
+    private WifiManager.LocalOnlyHotspotReservation hotspotReservation;
 
     public HotspotManager(Context context) {
         this.context = context;
         this.wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
 
-    public boolean setHotspotEnabled(boolean enabled, String ssid, String password) {
+    public int setHotspotEnabled(boolean enabled, String ssid, String password) {
         if (RootUtils.isDeviceRooted()) {
-            return setHotspotEnabledRoot(enabled, ssid, password);
+            if (setHotspotEnabledRoot(enabled, ssid, password)) return 1; // ROOT_OK
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Non-rooted Android 8.0+
-            Log.d("HotspotManager", "Android 8.0+ No Root. Fallback to LocalOnly or Manual.");
-            return false;
+            if (setHotspotEnabledReflection(enabled)) return 2; // REFLECTION_OK
+
+            if (enabled) {
+                startLocalOnlyHotspot();
+                return 3; // LOCAL_ONLY_STARTED
+            } else {
+                stopLocalOnlyHotspot();
+                return 4; // STOPPED
+            }
         } else {
-            // Older Android versions
-            return setHotspotEnabledLegacy(enabled, ssid, password);
+            if (setHotspotEnabledLegacy(enabled, ssid, password)) return 5; // LEGACY_OK
         }
+        return 0; // FAILED
     }
 
     private boolean setHotspotEnabledRoot(boolean enabled, String ssid, String password) {
@@ -42,12 +50,10 @@ public class HotspotManager {
             Process p = Runtime.getRuntime().exec("su");
             DataOutputStream os = new DataOutputStream(p.getOutputStream());
             if (enabled) {
-                // Command to enable tethering via service call or settings put
-                // This varies by Android version, but common one is 'svc wifi disable' then 'service call connectivity 24 i32 1' (for example)
+                os.writeBytes("cmd tethering start-tethering 0\n");
                 os.writeBytes("settings put global tether_offload_disabled 1\n");
-                // Simplified: use 'svc data' or similar to ensure mobile data is on for sharing
-                Log.d("HotspotManager", "Root: Enabling hotspot via shell...");
             } else {
+                os.writeBytes("cmd tethering stop-tethering 0\n");
                 os.writeBytes("svc wifi disable-tethering\n");
             }
             os.writeBytes("exit\n");
@@ -58,11 +64,28 @@ public class HotspotManager {
         }
     }
 
+    private boolean setHotspotEnabledReflection(boolean enabled) {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (enabled) {
+                Class<?> callbackClass = Class.forName("android.net.ConnectivityManager$OnStartTetheringCallback");
+                Method method = cm.getClass().getDeclaredMethod("startTethering", int.class, boolean.class, callbackClass, Handler.class);
+                method.setAccessible(true);
+                method.invoke(cm, 0, false, null, new Handler(Looper.getMainLooper()));
+            } else {
+                Method method = cm.getClass().getDeclaredMethod("stopTethering", int.class);
+                method.setAccessible(true);
+                method.invoke(cm, 0);
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private boolean setHotspotEnabledLegacy(boolean enabled, String ssid, String password) {
         try {
-            if (enabled) {
-                wifiManager.setWifiEnabled(false);
-            }
+            if (enabled) wifiManager.setWifiEnabled(false);
             WifiConfiguration wifiConfig = new WifiConfiguration();
             wifiConfig.SSID = ssid;
             if (password != null && password.length() >= 8) {
@@ -80,9 +103,37 @@ public class HotspotManager {
 
     public void startLocalOnlyHotspot() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-            // This would normally use a callback. Simplified for logic flow.
-            Log.d("HotspotManager", "Starting LocalOnlyHotspot for file sharing...");
+            try {
+                wifiManager.startLocalOnlyHotspot(new WifiManager.LocalOnlyHotspotCallback() {
+                    @Override
+                    public void onStarted(WifiManager.LocalOnlyHotspotReservation reservation) {
+                        super.onStarted(reservation);
+                        hotspotReservation = reservation;
+                        Log.d("HotspotManager", "LocalOnlyHotspot started: " + reservation.getWifiConfiguration().SSID);
+                    }
+
+                    @Override
+                    public void onStopped() {
+                        super.onStopped();
+                        hotspotReservation = null;
+                    }
+
+                    @Override
+                    public void onFailed(int reason) {
+                        super.onFailed(reason);
+                        hotspotReservation = null;
+                    }
+                }, new Handler(Looper.getMainLooper()));
+            } catch (Exception e) {
+                Log.e("HotspotManager", "Failed to start LocalOnlyHotspot", e);
+            }
+        }
+    }
+
+    public void stopLocalOnlyHotspot() {
+        if (hotspotReservation != null) {
+            hotspotReservation.close();
+            hotspotReservation = null;
         }
     }
 
@@ -101,7 +152,7 @@ public class HotspotManager {
         try {
             Method method = wifiManager.getClass().getDeclaredMethod("getWifiApState");
             int state = (Integer) method.invoke(wifiManager);
-            return state == 13 || state == 12;
+            return state == 13 || state == 12 || hotspotReservation != null;
         } catch (Exception e) {
             return false;
         }

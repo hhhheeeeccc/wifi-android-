@@ -36,10 +36,22 @@ public class WiFiModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void setHotspotEnabled(boolean enabled, String ssid, String password, Promise promise) {
-        if (hotspotManager.setHotspotEnabled(enabled, ssid, password)) {
+        int result = hotspotManager.setHotspotEnabled(enabled, ssid, password);
+
+        String status;
+        switch (result) {
+            case 1: status = "ROOT_OK"; break;
+            case 2: status = "REFLECTION_OK"; break;
+            case 3: status = "LOCAL_ONLY"; break;
+            case 4: status = "STOPPED"; break;
+            case 5: status = "LEGACY_OK"; break;
+            default: status = "FAILED"; break;
+        }
+
+        if (!status.equals("FAILED")) {
             if (enabled) startDeviceScan();
             else stopDeviceScan();
-            promise.resolve(true);
+            promise.resolve(status);
         } else {
             promise.reject("ERR_HOTSPOT", "Failed to toggle hotspot");
         }
