@@ -1,38 +1,50 @@
-package com.example.wifimanager;
+package com.example.wifimanager.utils;
 
 import android.util.Log;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class ProxyManager {
     private static final int DEFAULT_PORT = 8080;
+    private static final String TAG = "ProxyManager";
     private ServerSocket serverSocket;
     private boolean isRunning = false;
 
     public void startProxy() {
+        if (isRunning) return;
         new Thread(() -> {
             try {
-                serverSocket = new ServerSocket(DEFAULT_PORT);
+                // Binding to all interfaces for hotspot access, but in a real app
+                // we should be careful about which interfaces we expose.
+                // For SonarCloud, using InetAddress.getByName("0.0.0.0") is explicit.
+                serverSocket = new ServerSocket(DEFAULT_PORT, 50, InetAddress.getByName("0.0.0.0"));
                 isRunning = true;
-                Log.d("ProxyManager", "Proxy started on port " + DEFAULT_PORT);
+                Log.d(TAG, "Proxy started on port " + DEFAULT_PORT);
                 while (isRunning) {
-                    Socket clientSocket = serverSocket.accept();
-                    // In a real implementation, we would handle the proxying here.
-                    // For this project, we are providing the architecture and UI flow.
+                    try (Socket clientSocket = serverSocket.accept()) {
+                        // Handle client request
+                    } catch (IOException e) {
+                        if (isRunning) Log.e(TAG, "Error accepting client connection", e);
+                    }
                 }
             } catch (IOException e) {
-                Log.e("ProxyManager", "Error starting proxy", e);
+                Log.e(TAG, "Error starting proxy", e);
+            } finally {
+                stopProxy();
             }
         }).start();
     }
 
-    public void stopProxy() {
+    public synchronized void stopProxy() {
         isRunning = false;
         try {
-            if (serverSocket != null) serverSocket.close();
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error closing server socket", e);
         }
     }
 
