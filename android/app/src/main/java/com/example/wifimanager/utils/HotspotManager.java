@@ -15,6 +15,9 @@ import java.io.DataOutputStream;
 import java.lang.reflect.Method;
 
 public class HotspotManager {
+    private static final String TAG = "HotspotManager";
+    private static final String EXIT_CMD = "exit\n";
+
     private final WifiManager wifiManager;
     private final Context context;
     private WifiManager.LocalOnlyHotspotReservation hotspotReservation;
@@ -56,7 +59,7 @@ public class HotspotManager {
                 os.writeBytes("cmd tethering stop-tethering 0\n");
                 os.writeBytes("svc wifi disable-tethering\n");
             }
-            os.writeBytes("exit\n");
+            os.writeBytes(EXIT_CMD);
             os.flush();
             return true;
         } catch (Exception e) {
@@ -109,7 +112,7 @@ public class HotspotManager {
                     public void onStarted(WifiManager.LocalOnlyHotspotReservation reservation) {
                         super.onStarted(reservation);
                         hotspotReservation = reservation;
-                        Log.d("HotspotManager", "LocalOnlyHotspot started: " + reservation.getWifiConfiguration().SSID);
+                        Log.d(TAG, "LocalOnlyHotspot started: " + reservation.getWifiConfiguration().SSID);
                     }
 
                     @Override
@@ -125,7 +128,7 @@ public class HotspotManager {
                     }
                 }, new Handler(Looper.getMainLooper()));
             } catch (Exception e) {
-                Log.e("HotspotManager", "Failed to start LocalOnlyHotspot", e);
+                Log.e(TAG, "Failed to start LocalOnlyHotspot", e);
             }
         }
     }
@@ -168,26 +171,27 @@ public class HotspotManager {
             } else {
                 os.writeBytes("iptables -D FORWARD -m mac --mac-source " + mac + " -j DROP\n");
             }
-            os.writeBytes("exit\n");
+            os.writeBytes(EXIT_CMD);
             os.flush();
         } catch (Exception e) {
-            Log.e("HotspotManager", "Error blocking device", e);
+            Log.e(TAG, "Error blocking device", e);
         }
     }
 
     public void limitSpeed(String mac, int kbps) {
         if (!RootUtils.isDeviceRooted()) return;
         // Simplified tc command for speed limiting
+        // mac is currently unused in this simplified global limit, but kept in signature for future specific filtering
         try {
             Process p = Runtime.getRuntime().exec("su");
             DataOutputStream os = new DataOutputStream(p.getOutputStream());
             os.writeBytes("tc qdisc add dev wlan0 root handle 1: htb default 10\n");
             os.writeBytes("tc class add dev wlan0 parent 1: classid 1:1 htb rate " + kbps + "kbps ceil " + kbps + "kbps\n");
             os.writeBytes("tc filter add dev wlan0 protocol ip parent 1:0 prio 1 u32 match ip src 0.0.0.0/0 flowid 1:1\n");
-            os.writeBytes("exit\n");
+            os.writeBytes(EXIT_CMD);
             os.flush();
         } catch (Exception e) {
-            Log.e("HotspotManager", "Error limiting speed", e);
+            Log.e(TAG, "Error limiting speed for " + mac, e);
         }
     }
 }
