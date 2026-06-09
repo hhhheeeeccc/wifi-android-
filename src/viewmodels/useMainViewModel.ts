@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NativeModules, Alert, I18nManager, NativeEventEmitter } from 'react-native';
+import { NativeModules, Alert, I18nManager, NativeEventEmitter, Platform } from 'react-native';
 import { Device, HotspotState } from '../models/types';
 
 const { WiFiModule } = NativeModules;
@@ -34,11 +34,29 @@ export const useMainViewModel = () => {
     }
 
     try {
-      await WiFiModule.setHotspotEnabled(!state.isActive, state.ssid, state.password);
+      const status = await WiFiModule.setHotspotEnabled(!state.isActive, state.ssid, state.password);
+
+      if (status === 'IOS_MANUAL') {
+        Alert.alert(
+          'تنبيه',
+          'نظام iOS لا يسمح بتفعيل البث برمجياً. يرجى تفعيله يدوياً من الإعدادات.',
+          [
+            { text: 'إلغاء', style: 'cancel' },
+            { text: 'فتح الإعدادات', onPress: () => WiFiModule.openSettings() }
+          ]
+        );
+        return;
+      }
+
+      if (status === 'MANUAL') {
+        Alert.alert('تنبيه', 'يرجى تفعيل البث يدوياً من الإعدادات بسبب قيود النظام');
+        WiFiModule.openSettings();
+        return;
+      }
+
       setState(prev => ({ ...prev, isActive: !prev.isActive }));
     } catch (error) {
-      Alert.alert('تنبيه', 'يرجى تفعيل البث يدوياً من الإعدادات بسبب قيود النظام');
-      WiFiModule.openSettings();
+      Alert.alert('خطأ', 'حدث خطأ أثناء محاولة تغيير حالة البث');
     }
   }, [state]);
 
@@ -50,7 +68,6 @@ export const useMainViewModel = () => {
   const setPassword = (password: string) => setState(prev => ({ ...prev, password }));
 
   const blockDevice = (deviceId: string) => {
-    // In a real app, this would call WiFiModule.blockDevice(deviceId)
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, isBlocked: !d.isBlocked } : d));
   };
 
