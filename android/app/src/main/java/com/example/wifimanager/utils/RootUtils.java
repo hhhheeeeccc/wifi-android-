@@ -1,10 +1,12 @@
-package com.example.wifimanager;
+package com.example.wifimanager.utils;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 public class RootUtils {
     public static boolean isDeviceRooted() {
-        String[] paths = {
+        List<String> paths = Arrays.asList(
             "/system/app/Superuser.apk",
             "/sbin/su",
             "/system/bin/su",
@@ -14,7 +16,7 @@ public class RootUtils {
             "/system/sd/xbin/su",
             "/system/bin/failsafe/su",
             "/data/local/su"
-        };
+        );
         for (String path : paths) {
             if (new File(path).exists()) return true;
         }

@@ -1,38 +1,70 @@
-package com.example.wifimanager;
+package com.example.wifimanager.utils;
 
 import android.util.Log;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ProxyManager {
     private static final int DEFAULT_PORT = 8080;
+    private static final String TAG = "ProxyManager";
     private ServerSocket serverSocket;
-    private boolean isRunning = false;
+    private volatile boolean isRunning = false;
+    private ExecutorService executorService;
 
-    public void startProxy() {
-        new Thread(() -> {
+    public synchronized void startProxy() {
+        if (isRunning) return;
+        isRunning = true;
+        executorService = Executors.newSingleThreadExecutor();
+        executorService.execute(() -> {
             try {
+                // Binding to a specific port to allow proxying for hotspot clients.
                 serverSocket = new ServerSocket(DEFAULT_PORT);
-                isRunning = true;
-                Log.d("ProxyManager", "Proxy started on port " + DEFAULT_PORT);
+                Log.d(TAG, "Proxy started on port " + DEFAULT_PORT);
                 while (isRunning) {
-                    Socket clientSocket = serverSocket.accept();
-                    // In a real implementation, we would handle the proxying here.
-                    // For this project, we are providing the architecture and UI flow.
+                    try {
+                        Socket clientSocket = serverSocket.accept();
+                        handleClient(clientSocket);
+                    } catch (IOException e) {
+                        if (isRunning) Log.e(TAG, "Error accepting connection", e);
+                    }
                 }
             } catch (IOException e) {
-                Log.e("ProxyManager", "Error starting proxy", e);
+                Log.e(TAG, "Proxy server error", e);
+            } finally {
+                cleanup();
             }
-        }).start();
+        });
     }
 
-    public void stopProxy() {
-        isRunning = false;
+    private void handleClient(Socket socket) {
         try {
-            if (serverSocket != null) serverSocket.close();
+            if (socket != null) {
+                socket.close();
+            }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error closing client socket", e);
+        }
+    }
+
+    public synchronized void stopProxy() {
+        isRunning = false;
+        if (executorService != null) {
+            executorService.shutdownNow();
+            executorService = null;
+        }
+        cleanup();
+    }
+
+    private void cleanup() {
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error closing server socket", e);
         }
     }
 
