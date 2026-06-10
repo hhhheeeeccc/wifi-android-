@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -13,14 +14,17 @@ import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private HotspotManager hotspotManager;
     private HotspotRepository repository;
     private DeviceAdapter adapter;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private boolean isScanning = false;
+    private ScheduledExecutorService scanExecutor;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,10 +65,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         binding.proxyBtn.setOnClickListener(v -> {
-            if (binding.proxyLayout.getVisibility() == android.view.View.VISIBLE) {
-                binding.proxyLayout.setVisibility(android.view.View.GONE);
+            if (binding.proxyLayout.getVisibility() == View.VISIBLE) {
+                binding.proxyLayout.setVisibility(View.GONE);
             } else {
-                binding.proxyLayout.setVisibility(android.view.View.VISIBLE);
+                binding.proxyLayout.setVisibility(View.VISIBLE);
             }
         });
 
@@ -78,22 +82,45 @@ public class MainActivity extends AppCompatActivity {
         else stopDeviceScan();
     }
 
+    /**
+     * Periodic device scanning.
+     * Optimization: Offloads ARP table parsing to a background thread to prevent UI stuttering.
+     */
     private void startDeviceScan() {
-        isScanning = true;
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (!isScanning) return;
+        if (scanExecutor == null || scanExecutor.isShutdown()) {
+            scanExecutor = Executors.newSingleThreadScheduledExecutor();
+            scanExecutor.scheduleAtFixedRate(() -> {
+                // Background thread: I/O operation
                 List<Device> devices = repository.getConnectedDevices();
-                adapter.updateDevices(devices);
-                updateEmptyState(devices);
-                handler.postDelayed(this, 5000);
-            }
-        });
+                // Post result to UI thread
+                uiHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        adapter.updateDevices(devices);
+                    }
+                });
+            }, 0, 5, TimeUnit.SECONDS);
+        }
     }
 
     private void stopDeviceScan() {
-        isScanning = false;
+        if (scanExecutor != null) {
+            scanExecutor.shutdown();
+            scanExecutor = null;
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (hotspotManager.isHotspotEnabled()) {
+            startDeviceScan();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopDeviceScan();
     }
 
     @Override
