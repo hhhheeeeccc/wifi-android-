@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
         binding.devicesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new DeviceAdapter(new ArrayList<>(), this);
         binding.devicesRecyclerView.setAdapter(adapter);
+        updateEmptyState(new ArrayList<>());
 
         binding.toggleHotspot.setOnClickListener(v -> {
             String ssid = binding.ssidInput.getText().toString();
@@ -59,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
             if (result > 0) {
                 updateStatus(!currentState);
             } else {
-                Toast.makeText(this, "Failed to toggle hotspot", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.toggle_failed, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -126,5 +127,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopDeviceScan();
+    }
+
+    private void updateEmptyState(List<Device> devices) {
+        if (devices.isEmpty()) {
+            binding.emptyStateText.setVisibility(android.view.View.VISIBLE);
+            binding.devicesRecyclerView.setVisibility(android.view.View.GONE);
+        } else {
+            binding.emptyStateText.setVisibility(android.view.View.GONE);
+            binding.devicesRecyclerView.setVisibility(android.view.View.VISIBLE);
+        }
     }
 }

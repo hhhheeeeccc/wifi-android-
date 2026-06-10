@@ -59,9 +59,10 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
             binding.btnLimit.setOnClickListener(v -> showLimitDialog(device));
             binding.btnSpeed.setOnClickListener(v -> showSpeedDialog(device));
+            binding.btnBlock.setText(context.getString(device.isBlocked() ? R.string.unblock_user : R.string.block_user));
             binding.btnBlock.setOnClickListener(v -> {
                 device.setBlocked(!device.isBlocked());
-                binding.btnBlock.setText(device.isBlocked() ? "إلغاء الحظر" : "حظر الجهاز");
+                binding.btnBlock.setText(context.getString(device.isBlocked() ? R.string.unblock_user : R.string.block_user));
             });
 
             if (device.getDataLimit() > 0) {
@@ -76,31 +77,31 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         private void showLimitDialog(Device device) {
             DialogLimitBinding limitBinding = DialogLimitBinding.inflate(LayoutInflater.from(context));
             new AlertDialog.Builder(context)
-                .setTitle("تحديد كمية البيانات")
+                .setTitle(R.string.limit_data)
                 .setView(limitBinding.getRoot())
-                .setPositiveButton("حفظ", (dialog, which) -> {
+                .setPositiveButton(R.string.save, (dialog, which) -> {
                     String input = limitBinding.limitInput.getText().toString();
                     if (!input.isEmpty()) {
                         device.setDataLimit(Long.parseLong(input));
                         notifyItemChanged(getAdapterPosition());
                     }
                 })
-                .setNegativeButton("إلغاء", null)
+                .setNegativeButton(R.string.cancel, null)
                 .show();
         }
 
         private void showSpeedDialog(Device device) {
             DialogSpeedBinding speedBinding = DialogSpeedBinding.inflate(LayoutInflater.from(context));
             new AlertDialog.Builder(context)
-                .setTitle("تحديد السرعة")
+                .setTitle(R.string.speed_limit)
                 .setView(speedBinding.getRoot())
-                .setPositiveButton("حفظ", (dialog, which) -> {
+                .setPositiveButton(R.string.save, (dialog, which) -> {
                     String input = speedBinding.speedInput.getText().toString();
                     if (!input.isEmpty()) {
                         device.setSpeedLimit(Integer.parseInt(input));
                     }
                 })
-                .setNegativeButton("إلغاء", null)
+                .setNegativeButton(R.string.cancel, null)
                 .show();
         }
     }
