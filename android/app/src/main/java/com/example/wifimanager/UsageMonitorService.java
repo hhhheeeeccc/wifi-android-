@@ -2,19 +2,24 @@ package com.example.wifimanager;
 
 import android.app.Service;
 import android.content.Intent;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * Service to monitor data usage of connected devices.
+ * Optimization: Uses ScheduledExecutorService to perform periodic checks on a background thread,
+ * avoiding main thread blocking for file I/O and root commands.
+ */
 public class UsageMonitorService extends Service {
-    private final Handler handler = new Handler(Looper.getMainLooper());
     private HotspotRepository repository;
     private HotspotManager hotspotManager;
-    private boolean isRunning = false;
+    private ScheduledExecutorService scheduler;
 
     @Override
     public void onCreate() {
@@ -25,35 +30,31 @@ public class UsageMonitorService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!isRunning) {
-            isRunning = true;
-            startMonitoring();
+        if (scheduler == null || scheduler.isShutdown()) {
+            scheduler = Executors.newSingleThreadScheduledExecutor();
+            // Start monitoring periodically in the background
+            scheduler.scheduleAtFixedRate(this::checkUsage, 0, 10, TimeUnit.SECONDS);
         }
         return START_STICKY;
     }
 
-    private void startMonitoring() {
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (!isRunning) return;
-                checkUsage();
-                handler.postDelayed(this, 10000); // Check every 10 seconds
-            }
-        });
-    }
-
     private void checkUsage() {
-        List<Device> devices = repository.getConnectedDevices();
-        for (Device device : devices) {
-            // In a real app, you would fetch actual usage from /proc/net/xt_qtaguid/stats
-            // For now, we simulate data usage increment
-            if (device.getDataLimit() > 0) {
-                device.setUsedData(device.getUsedData() + 1); // Simulating 1MB used
-                if (device.getUsedData() >= device.getDataLimit()) {
-                    hotspotManager.blockDevice(device.getMacAddress(), true);
+        try {
+            // repository.getConnectedDevices() performs file I/O on /proc/net/arp
+            List<Device> devices = repository.getConnectedDevices();
+            for (Device device : devices) {
+                // In a real app, actual usage would be fetched from /proc/net/xt_qtaguid/stats
+                if (device.getDataLimit() > 0) {
+                    device.setUsedData(device.getUsedData() + 1); // Simulating usage
+                    if (device.getUsedData() >= device.getDataLimit()) {
+                        // hotspotManager.blockDevice() executes shell commands via su
+                        hotspotManager.blockDevice(device.getMacAddress(), true);
+                    }
                 }
             }
+        } catch (Exception e) {
+            // Ensure the scheduler keeps running even if one iteration fails
+            e.printStackTrace();
         }
     }
 
@@ -64,7 +65,9 @@ public class UsageMonitorService extends Service {
 
     @Override
     public void onDestroy() {
-        isRunning = false;
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
         super.onDestroy();
     }
 }
