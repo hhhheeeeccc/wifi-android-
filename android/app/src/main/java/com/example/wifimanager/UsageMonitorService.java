@@ -3,6 +3,7 @@ package com.example.wifimanager;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.util.Log;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
  * avoiding main thread blocking for file I/O and root commands.
  */
 public class UsageMonitorService extends Service {
+    private static final String TAG = "UsageMonitorService";
     private HotspotRepository repository;
     private HotspotManager hotspotManager;
     private ScheduledExecutorService scheduler;
@@ -54,7 +56,7 @@ public class UsageMonitorService extends Service {
             }
         } catch (Exception e) {
             // Ensure the scheduler keeps running even if one iteration fails
-            e.printStackTrace();
+            Log.e(TAG, "Error during usage check", e);
         }
     }
 

@@ -1,7 +1,30 @@
+# Gradle files
 .gradle/
-build/
 android/.gradle/
+build/
+android/build/
 android/app/build/
-*.class
+
+# Android artifacts
 *.apk
+*.aar
+*.ap_
+*.dex
 *.flat
+
+# Generated files
+android/app/src/main/res/values/generated.xml
+
+# Local configuration
+local.properties
+android/local.properties
+.DS_Store
+
+# Java/Kotlin artifacts
+*.class
+*.jar
+*.bin
+*.lock
+
+# Logs
+*.log

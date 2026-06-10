@@ -92,7 +92,11 @@ public class MainActivity extends AppCompatActivity {
                 // Background thread: I/O operation
                 List<Device> devices = repository.getConnectedDevices();
                 // Post result to UI thread
-                uiHandler.post(() -> adapter.updateDevices(devices));
+                uiHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        adapter.updateDevices(devices);
+                    }
+                });
             }, 0, 5, TimeUnit.SECONDS);
         }
     }
