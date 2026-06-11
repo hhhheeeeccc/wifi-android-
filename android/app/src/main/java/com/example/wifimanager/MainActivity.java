@@ -5,151 +5,99 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import com.example.wifimanager.databinding.ActivityMainBinding;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends AppCompatActivity {
-    private ActivityMainBinding binding;
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private HotspotManager hotspotManager;
-    private HotspotRepository repository;
-    private DeviceAdapter adapter;
-    private ScheduledExecutorService scanExecutor;
-    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private HotspotRepository hotspotRepo;
+    private DeviceAdapter deviceAdapter;
+    private boolean scanActive = false;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private ExecutorService singleThreadPool;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    private TextView statusLabel;
+    private Button toggleBtn;
+    private Button proxyConfigBtn;
+    private EditText ssidInput;
+    private EditText passInput;
+    private View proxyInfoLay;
+    private ListView devicesListView;
+
+    public boolean isScanActive() { return scanActive; }
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        setContentView(R.layout.activity_main);
+        statusLabel = (TextView) findViewById(R.id.statusLabel);
+        toggleBtn = (Button) findViewById(R.id.toggleHotspot);
+        ssidInput = (EditText) findViewById(R.id.ssidInput);
+        passInput = (EditText) findViewById(R.id.passwordInput);
+        proxyInfoLay = findViewById(R.id.proxyLayout);
+        proxyConfigBtn = (Button) findViewById(R.id.proxyBtn);
+        devicesListView = (ListView) findViewById(R.id.devicesRecyclerView);
 
         hotspotManager = new HotspotManager(this);
-        repository = new HotspotRepository(this);
+        hotspotRepo = new HotspotRepository(this);
+        deviceAdapter = new DeviceAdapter(this, new ArrayList<Device>());
+        devicesListView.setAdapter(deviceAdapter);
 
-        setupUI();
+        toggleBtn.setOnClickListener(this);
+        proxyConfigBtn.setOnClickListener(this);
+
+        singleThreadPool = Executors.newSingleThreadExecutor();
+
+        updateUI();
         startService(new Intent(this, UsageMonitorService.class));
     }
 
-    private void setupUI() {
-        binding.devicesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new DeviceAdapter(new ArrayList<>(), this);
-        binding.devicesRecyclerView.setAdapter(adapter);
-        updateEmptyState(new ArrayList<>());
-
-        binding.toggleHotspot.setOnClickListener(v -> {
-            String ssid = binding.ssidInput.getText().toString();
-            String password = binding.passwordInput.getText().toString();
-
-            if (password.length() < 8) {
+    @Override public void onClick(View v) {
+        if (v.getId() == R.id.toggleHotspot) {
+            final String ssid = ssidInput.getText().toString();
+            final String pass = passInput.getText().toString();
+            if (pass.length() < 8) {
                 Toast.makeText(this, R.string.password_error, Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            boolean currentState = hotspotManager.isHotspotEnabled();
-            boolean nextState = !currentState;
-
-            // Show feedback
-            Toast.makeText(this, nextState ? R.string.hotspot_starting : R.string.hotspot_stopping, Toast.LENGTH_SHORT).show();
-            binding.toggleHotspot.setEnabled(false);
-
-            Executors.newSingleThreadExecutor().execute(() -> {
-                int result = hotspotManager.setHotspotEnabled(nextState, ssid, password);
-
-                // Delay to allow system state to stabilize
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException ignored) {}
-
-                uiHandler.post(() -> {
-                    binding.toggleHotspot.setEnabled(true);
-                    boolean realState = hotspotManager.isHotspotEnabled();
-                    updateStatus(realState);
-
-                    if (result > 0) {
-                        if (!nextState && !realState) {
-                            Toast.makeText(this, R.string.hotspot_stopped_success, Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        Toast.makeText(this, R.string.toggle_failed, Toast.LENGTH_SHORT).show();
-                    }
-                });
-            });
-        });
-
-        binding.proxyBtn.setOnClickListener(v -> {
-            if (binding.proxyLayout.getVisibility() == View.VISIBLE) {
-                binding.proxyLayout.setVisibility(View.GONE);
-            } else {
-                binding.proxyLayout.setVisibility(View.VISIBLE);
+            if (singleThreadPool != null && !singleThreadPool.isShutdown()) {
+                singleThreadPool.execute(new ToggleHotspotRunnable(hotspotManager, !hotspotManager.isHotspotEnabled(), ssid, pass, mainHandler, this));
             }
-        });
-
-        updateStatus(hotspotManager.isHotspotEnabled());
-    }
-
-    private void updateStatus(boolean active) {
-        binding.statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
-        binding.toggleHotspot.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
-        if (active) startDeviceScan();
-        else stopDeviceScan();
-    }
-
-    private void startDeviceScan() {
-        if (scanExecutor == null || scanExecutor.isShutdown()) {
-            scanExecutor = Executors.newSingleThreadScheduledExecutor();
-            scanExecutor.scheduleAtFixedRate(() -> {
-                List<Device> devices = repository.getConnectedDevices();
-                uiHandler.post(() -> {
-                    if (!isFinishing() && !isDestroyed()) {
-                        adapter.updateDevices(devices);
-                        updateEmptyState(devices);
-                    }
-                });
-            }, 0, 5, TimeUnit.SECONDS);
+        } else if (v.getId() == R.id.proxyBtn) {
+            proxyInfoLay.setVisibility(proxyInfoLay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
         }
     }
 
-    private void stopDeviceScan() {
-        if (scanExecutor != null) {
-            scanExecutor.shutdown();
-            scanExecutor = null;
+    public void updateUI() {
+        if (isFinishing()) return;
+        boolean active = hotspotManager.isHotspotEnabled();
+        statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
+        toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
+        if (active && !scanActive) {
+            scanActive = true;
+            mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
+        } else if (!active) {
+            scanActive = false;
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateStatus(hotspotManager.isHotspotEnabled());
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        stopDeviceScan();
-    }
-
-    @Override
-    protected void onDestroy() {
+    @Override protected void onDestroy() {
+        scanActive = false;
+        mainHandler.removeCallbacksAndMessages(null);
+        if (singleThreadPool != null) {
+            singleThreadPool.shutdownNow();
+            singleThreadPool = null;
+        }
         super.onDestroy();
-        stopDeviceScan();
-    }
-
-    private void updateEmptyState(List<Device> devices) {
-        if (devices.isEmpty()) {
-            binding.emptyStateText.setVisibility(View.VISIBLE);
-            binding.devicesRecyclerView.setVisibility(View.GONE);
-        } else {
-            binding.emptyStateText.setVisibility(View.GONE);
-            binding.devicesRecyclerView.setVisibility(View.VISIBLE);
-        }
     }
 }

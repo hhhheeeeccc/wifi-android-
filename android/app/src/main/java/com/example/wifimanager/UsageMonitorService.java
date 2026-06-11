@@ -1,74 +1,59 @@
 package com.example.wifimanager;
-
 import android.app.Service;
 import android.content.Intent;
+import android.os.Handler;
 import android.os.IBinder;
-import android.util.Log;
+import android.os.Looper;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
-import com.example.wifimanager.utils.HotspotManager;
+import com.example.wifimanager.utils.ProxyManager;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-/**
- * Service to monitor data usage of connected devices.
- * Optimization: Uses ScheduledExecutorService to perform periodic checks on a background thread,
- * avoiding main thread blocking for file I/O and root commands.
- */
 public class UsageMonitorService extends Service {
-    private static final String TAG = "UsageMonitorService";
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private HotspotRepository repository;
-    private HotspotManager hotspotManager;
-    private ScheduledExecutorService scheduler;
+    private ProxyManager proxyManager;
+    private volatile boolean isRunning = false;
 
-    @Override
-    public void onCreate() {
+    public boolean isRunning() { return isRunning; }
+
+    @Override public void onCreate() {
         super.onCreate();
         repository = new HotspotRepository(this);
-        hotspotManager = new HotspotManager(this);
+        proxyManager = new ProxyManager(this);
+        proxyManager.startProxy();
     }
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (scheduler == null || scheduler.isShutdown()) {
-            scheduler = Executors.newSingleThreadScheduledExecutor();
-            // Start monitoring periodically in the background
-            scheduler.scheduleAtFixedRate(this::checkUsage, 0, 10, TimeUnit.SECONDS);
+    @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!isRunning) {
+            isRunning = true;
+            handler.post(new UsageCheckRunnable(this, handler));
         }
         return START_STICKY;
     }
 
-    private void checkUsage() {
-        try {
-            // repository.getConnectedDevices() performs file I/O on /proc/net/arp
-            List<Device> devices = repository.getConnectedDevices();
-            for (Device device : devices) {
-                // In a real app, actual usage would be fetched from /proc/net/xt_qtaguid/stats
-                if (device.getDataLimit() > 0) {
-                    device.setUsedData(device.getUsedData() + 1); // Simulating usage
-                    if (device.getUsedData() >= device.getDataLimit()) {
-                        // hotspotManager.blockDevice() executes shell commands via su
-                        hotspotManager.blockDevice(device.getMacAddress(), true);
-                    }
+    public void checkUsage() {
+        List<Device> devices = repository.getConnectedDevices();
+        for (Device device : devices) {
+            long usageBytes = proxyManager.getAndResetUsage(device.getIpAddress());
+            if (usageBytes > 0) {
+                long currentBytes = device.getUsedData() * 1024 * 1024;
+                long totalBytes = currentBytes + usageBytes;
+                long totalMb = totalBytes / (1024 * 1024);
+                device.setUsedData(totalMb);
+                if (device.getDataLimit() > 0 && totalMb >= device.getDataLimit()) {
+                    device.setBlocked(true);
                 }
+                repository.saveDevice(device);
             }
-        } catch (Exception e) {
-            // Ensure the scheduler keeps running even if one iteration fails
-            Log.e(TAG, "Error during usage check", e);
         }
     }
 
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    @Override public IBinder onBind(Intent intent) { return null; }
 
-    @Override
-    public void onDestroy() {
-        if (scheduler != null) {
-            scheduler.shutdown();
+    @Override public void onDestroy() {
+        isRunning = false;
+        if (proxyManager != null) {
+            proxyManager.stopProxy();
         }
         super.onDestroy();
     }

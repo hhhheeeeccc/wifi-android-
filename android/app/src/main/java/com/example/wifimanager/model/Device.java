@@ -22,7 +22,6 @@ public class Device {
     public String getIpAddress() { return ipAddress; }
     public String getMacAddress() { return macAddress; }
     public String getDeviceName() { return deviceName; }
-    public void setDeviceName(String deviceName) { this.deviceName = deviceName; }
     public long getDataLimit() { return dataLimit; }
     public void setDataLimit(long dataLimit) { this.dataLimit = dataLimit; }
     public long getUsedData() { return usedData; }
@@ -30,5 +29,5 @@ public class Device {
     public int getSpeedLimit() { return speedLimit; }
     public void setSpeedLimit(int speedLimit) { this.speedLimit = speedLimit; }
     public boolean isBlocked() { return isBlocked; }
-    public void setBlocked(boolean blocked) { isBlocked = blocked; }
+    public void setBlocked(boolean blocked) { this.isBlocked = blocked; }
 }
