@@ -14,8 +14,9 @@ public class HotspotManager {
         this.wm = (WifiManager) c.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
     public int setHotspotEnabled(boolean en, String s, String p) {
-        if (RootUtils.isDeviceRooted()) { try {
-            Process pr = Runtime.getRuntime().exec("su");
+        String suPath = RootUtils.getSuPath();
+        if (suPath != null) { try {
+            Process pr = Runtime.getRuntime().exec(suPath);
             DataOutputStream os = new DataOutputStream(pr.getOutputStream());
             os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
             os.flush(); return 1;
@@ -33,18 +34,25 @@ public class HotspotManager {
         try { Method m = wm.getClass().getDeclaredMethod("getWifiApState"); return ((Integer) m.invoke(wm)) >= 12; } catch (Exception e) { return false; }
     }
     public void blockDevice(String mac, boolean b) {
-        if (RootUtils.isDeviceRooted()) { try {
-            Process pr = Runtime.getRuntime().exec("su");
+        String suPath = RootUtils.getSuPath();
+        if (suPath != null) { try {
+            Process pr = Runtime.getRuntime().exec(suPath);
             DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-            os.writeBytes("iptables -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
+            // Using absolute path for system binaries to satisfy security checks
+            String bin = "/system/bin/iptables";
+            if (!new java.io.File(bin).exists()) bin = "/system/xbin/iptables";
+            os.writeBytes(bin + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
             os.flush();
         } catch (Exception e) {} }
     }
     public void limitSpeed(String mac, int k) {
-        if (RootUtils.isDeviceRooted()) { try {
-            Process pr = Runtime.getRuntime().exec("su");
+        String suPath = RootUtils.getSuPath();
+        if (suPath != null) { try {
+            Process pr = Runtime.getRuntime().exec(suPath);
             DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-            os.writeBytes("tc qdisc add dev wlan0 root handle 1: htb default 10\nexit\n");
+            String bin = "/system/bin/tc";
+            if (!new java.io.File(bin).exists()) bin = "/system/xbin/tc";
+            os.writeBytes(bin + " qdisc add dev wlan0 root handle 1: htb default 10\nexit\n");
             os.flush();
         } catch (Exception e) {} }
     }

@@ -12,11 +12,10 @@ import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
 import java.util.List;
 public class DeviceAdapter extends BaseAdapter {
-    public final Context ctx; public List<Device> list; public final HotspotManager hm; public final HotspotRepository repo;
+    private final Context ctx; private List<Device> list; private final HotspotManager hm; private final HotspotRepository repo;
     public DeviceAdapter(Context c, List<Device> l) { this.ctx = c; this.list = l; this.hm = new HotspotManager(c); this.repo = new HotspotRepository(c); }
-    public void update(List<Device> nl) { this.list = newList(nl); notifyDataSetChanged(); }
-    private List<Device> newList(List<Device> nl) { return nl; }
-    @Override public int getCount() { return list.size(); }
+    public void update(List<Device> nl) { this.list = nl; notifyDataSetChanged(); }
+    @Override public int getCount() { return list != null ? list.size() : 0; }
     @Override public Object getItem(int p) { return list.get(p); }
     @Override public long getItemId(int p) { return p; }
     @Override public View getView(int p, View v, ViewGroup pr) {
@@ -25,7 +24,9 @@ public class DeviceAdapter extends BaseAdapter {
         ((TextView) v.findViewById(R.id.deviceName)).setText(d.getDeviceName());
         ((TextView) v.findViewById(R.id.deviceDetails)).setText(d.getIpAddress());
         Button b = (Button) v.findViewById(R.id.btnBlock); b.setText(d.isBlocked() ? "Unblock" : "Block");
-        b.setOnClickListener(new ClickHandler(this, d));
+        b.setOnClickListener(new BlockClickListener(d, hm, repo, this));
+        v.findViewById(R.id.btnLimit).setOnClickListener(new LimitClickListener(d, repo, this));
+        v.findViewById(R.id.btnSpeed).setOnClickListener(new SpeedClickListener(d, hm, repo, this));
         ProgressBar pg = (ProgressBar) v.findViewById(R.id.dataProgress);
         if (d.getDataLimit() > 0) { pg.setVisibility(View.VISIBLE); pg.setProgress((int)Math.min(100, (d.getUsedData()*100L)/d.getDataLimit())); }
         else pg.setVisibility(View.GONE);

@@ -19,17 +19,4 @@
     <string name="hotspot_manual_instruction">Please enable hotspot manually from system settings due to OS restrictions.</string>
     <string name="hotspot_root_instruction">Hotspot enabled successfully via Root permissions.</string>
     <string name="no_devices">No devices connected</string>
-    <string name="unblock_user">Unblock Device</string>
-    <string name="toggle_failed">Failed to toggle hotspot</string>
-    <string name="device_icon_desc">Device icon</string>
-    <string name="save">Save</string>
-    <string name="cancel">Cancel</string>
-    <string name="network_settings">Network Settings</string>
-    <string name="data_limit_title">Data Usage Limit</string>
-    <string name="data_limit_hint">Enter limit (MB)</string>
-    <string name="speed_limit_title">Internet Speed Limit</string>
-    <string name="speed_limit_hint">Enter max speed</string>
-    <string name="hotspot_stopping">Stopping hotspot, please wait...</string>
-    <string name="hotspot_starting">Starting hotspot, please wait...</string>
-    <string name="hotspot_stopped_success">Hotspot stopped successfully.</string>
 </resources>
