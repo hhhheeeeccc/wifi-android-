@@ -8,12 +8,14 @@ public class ProxyThread extends Thread {
     public ProxyThread(ProxyManager pm) { this.pm = pm; }
     @Override public void run() {
         try {
-            pm.ss = new ServerSocket(8080);
-            while (pm.run) {
-                final Socket socket = pm.ss.accept();
+            ServerSocket ss = new ServerSocket(8080);
+            pm.setServerSocket(ss);
+            while (pm.isRunning()) {
+                final Socket socket = ss.accept();
                 pm.submitTask(new HandlerThread(pm, socket));
             }
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            // Socket likely closed
         } finally {
             pm.stopProxy();
         }

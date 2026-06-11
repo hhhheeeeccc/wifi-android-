@@ -15,9 +15,13 @@ public class HotspotRepository {
     }
 
     public synchronized void saveDevice(Device d) {
-        SharedPreferences.Editor e = p.edit(); String m = d.getMacAddress();
-        e.putLong(m + "l", d.getDataLimit()); e.putLong(m + "u", d.getUsedData());
-        e.putInt(m + "s", d.getSpeedLimit()); e.putBoolean(m + "b", d.isBlocked()); e.apply();
+        SharedPreferences.Editor e = p.edit();
+        String m = d.getMacAddress();
+        e.putLong(m + "l", d.getDataLimit());
+        e.putLong(m + "u", d.getUsedData());
+        e.putInt(m + "s", d.getSpeedLimit());
+        e.putBoolean(m + "b", d.isBlocked());
+        e.apply();
     }
 
     public synchronized void load(Device d) {
@@ -43,8 +47,13 @@ public class HotspotRepository {
                 }
             }
         } catch (IOException e) {
+            // Arp table not available
         } finally {
-            if (br != null) { try { br.close(); } catch (IOException ignored) {} }
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException ignored) {}
+            }
         }
         return list;
     }

@@ -12,34 +12,45 @@ import java.util.concurrent.Executors;
 
 public class ProxyManager {
     private final HotspotRepository repo;
-    ServerSocket ss;
-    volatile boolean run = false;
+    private ServerSocket serverSocket;
+    private volatile boolean runStatus = false;
     private final Map<String, Long> usageMap = new ConcurrentHashMap<String, Long>();
     private final Map<String, Boolean> blockMap = new ConcurrentHashMap<String, Boolean>();
     private final Map<String, Integer> speedMap = new ConcurrentHashMap<String, Integer>();
-    private volatile long lastUpdate = 0;
+    private volatile long lastUpdateTimestamp = 0;
     private ExecutorService threadPool;
 
     public ProxyManager(Context c) { this.repo = new HotspotRepository(c); }
 
-    public boolean isRunning() { return run; }
+    public boolean isRunning() { return runStatus; }
 
     public synchronized void startProxy() {
-        if (!run) {
-            run = true;
+        if (!runStatus) {
+            runStatus = true;
             threadPool = Executors.newCachedThreadPool();
             new ProxyThread(this).start();
         }
     }
 
     public synchronized void stopProxy() {
-        run = false;
-        if (ss != null) { try { ss.close(); } catch (IOException ignored) {} ss = null; }
+        runStatus = false;
+        if (serverSocket != null) {
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                // Squelch close error
+            }
+            serverSocket = null;
+        }
         if (threadPool != null) {
             threadPool.shutdownNow();
             threadPool = null;
         }
     }
+
+    public void setServerSocket(ServerSocket socket) { this.serverSocket = socket; }
+
+    public ServerSocket getServerSocket() { return serverSocket; }
 
     public void submitTask(Runnable task) {
         ExecutorService pool = threadPool;
@@ -75,11 +86,12 @@ public class ProxyManager {
     }
 
     private void updateCache() {
-        if (System.currentTimeMillis() - lastUpdate < 5000) return;
+        if (System.currentTimeMillis() - lastUpdateTimestamp < 5000) return;
         synchronized(this) {
-            if (System.currentTimeMillis() - lastUpdate < 5000) return;
+            if (System.currentTimeMillis() - lastUpdateTimestamp < 5000) return;
             List<Device> ds = repo.getConnectedDevices();
-            blockMap.clear(); speedMap.clear();
+            blockMap.clear();
+            speedMap.clear();
             for (Device d : ds) {
                 String ip = d.getIpAddress();
                 if (ip != null) {
@@ -87,7 +99,7 @@ public class ProxyManager {
                     speedMap.put(ip, d.getSpeedLimit());
                 }
             }
-            lastUpdate = System.currentTimeMillis();
+            lastUpdateTimestamp = System.currentTimeMillis();
         }
     }
 

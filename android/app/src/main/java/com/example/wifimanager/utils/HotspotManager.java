@@ -38,7 +38,9 @@ public class HotspotManager {
             os.flush();
             os.close();
             return 1;
-        } catch (Exception ignored) {} }
+        } catch (Exception e) {
+            // Root method failed
+        } }
         if (Build.VERSION.SDK_INT >= 26) return 2;
         try {
             if (en) wm.setWifiEnabled(false);
@@ -51,7 +53,9 @@ public class HotspotManager {
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
             return (res instanceof Boolean && (Boolean)res) ? 4 : 0;
-        } catch (Exception ignored) { return 0; }
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     public boolean isHotspotEnabled() {
@@ -59,7 +63,9 @@ public class HotspotManager {
             Method m = wm.getClass().getDeclaredMethod("getWifiApState");
             Object res = m.invoke(wm);
             return res instanceof Integer && (Integer)res >= 12;
-        } catch (Exception ignored) { return false; }
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public void blockDevice(String mac, boolean b) {
@@ -72,18 +78,26 @@ public class HotspotManager {
             os.writeBytes(ipt + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
             os.flush();
             os.close();
-        } catch (Exception ignored) {} }
+        } catch (Exception e) {
+            // Block failed
+        } }
     }
 
     public void limitSpeed(String mac, int k) {
+        if (mac == null) return;
         String su = getBin("su");
         String tc = getBin("tc");
         if (su != null && tc != null) { try {
             Process pr = new ProcessBuilder(su).start();
             DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-            os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\nexit\n");
+            // Using parameters to construct command
+            os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\n");
+            os.writeBytes(tc + " class add dev wlan0 parent 1: classid 1:1 htb rate " + k + "kbps ceil " + k + "kbps\n");
+            os.writeBytes("exit\n");
             os.flush();
             os.close();
-        } catch (Exception ignored) {} }
+        } catch (Exception e) {
+            // Limit failed
+        } }
     }
 }

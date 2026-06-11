@@ -23,15 +23,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private HotspotManager hotspotManager;
     private HotspotRepository hotspotRepo;
     private DeviceAdapter deviceAdapter;
-    public boolean scanActive = false;
-    public final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private boolean scanActive = false;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private ExecutorService singleThreadPool;
 
     private TextView statusLabel;
-    private Button toggleBtn, proxyConfigBtn;
-    private EditText ssidInput, passInput;
+    private Button toggleBtn;
+    private Button proxyConfigBtn;
+    private EditText ssidInput;
+    private EditText passInput;
     private View proxyInfoLay;
     private ListView devicesListView;
+
+    public boolean isScanActive() { return scanActive; }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

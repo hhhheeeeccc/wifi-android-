@@ -7,10 +7,13 @@ public class ScanRunnable implements Runnable {
     private final DeviceAdapter ad;
     private final Handler h;
     public ScanRunnable(MainActivity a, HotspotRepository r, DeviceAdapter ad, Handler h) {
-        this.a = a; this.r = r; this.ad = ad; this.h = h;
+        this.a = a;
+        this.r = r;
+        this.ad = ad;
+        this.h = h;
     }
     @Override public void run() {
-        if (!a.scanActive) return;
+        if (!a.isScanActive()) return;
         ad.update(r.getConnectedDevices());
         h.postDelayed(this, 5000);
     }

@@ -9,30 +9,52 @@ import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.ProxyManager;
 import java.util.List;
 public class UsageMonitorService extends Service {
-    private final Handler h = new Handler(Looper.getMainLooper());
-    public HotspotRepository r;
-    public ProxyManager pm;
-    public boolean run = false;
-    public boolean isRunning() { return run; }
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private HotspotRepository repository;
+    private ProxyManager proxyManager;
+    private volatile boolean isRunning = false;
+
+    public boolean isRunning() { return isRunning; }
+
     @Override public void onCreate() {
-        super.onCreate(); r = new HotspotRepository(this); pm = new ProxyManager(this); pm.startProxy();
+        super.onCreate();
+        repository = new HotspotRepository(this);
+        proxyManager = new ProxyManager(this);
+        proxyManager.startProxy();
     }
-    @Override public int onStartCommand(Intent i, int f, int s) {
-        if (!run) { run = true; h.post(new UsageCheckRunnable(this, h)); }
+
+    @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!isRunning) {
+            isRunning = true;
+            handler.post(new UsageCheckRunnable(this, handler));
+        }
         return START_STICKY;
     }
+
     public void checkUsage() {
-        List<Device> ds = r.getConnectedDevices();
-        for (Device d : ds) {
-            long u = pm.getAndResetUsage(d.getIpAddress());
-            if (u > 0) {
-                long total = d.getUsedData() + (u / (1024 * 1024));
-                d.setUsedData(total);
-                if (d.getDataLimit() > 0 && total >= d.getDataLimit()) d.setBlocked(true);
-                r.saveDevice(d);
+        List<Device> devices = repository.getConnectedDevices();
+        for (Device device : devices) {
+            long usageBytes = proxyManager.getAndResetUsage(device.getIpAddress());
+            if (usageBytes > 0) {
+                long currentBytes = device.getUsedData() * 1024 * 1024;
+                long totalBytes = currentBytes + usageBytes;
+                long totalMb = totalBytes / (1024 * 1024);
+                device.setUsedData(totalMb);
+                if (device.getDataLimit() > 0 && totalMb >= device.getDataLimit()) {
+                    device.setBlocked(true);
+                }
+                repository.saveDevice(device);
             }
         }
     }
-    @Override public IBinder onBind(Intent i) { return null; }
-    @Override public void onDestroy() { run = false; if (pm != null) pm.stopProxy(); super.onDestroy(); }
+
+    @Override public IBinder onBind(Intent intent) { return null; }
+
+    @Override public void onDestroy() {
+        isRunning = false;
+        if (proxyManager != null) {
+            proxyManager.stopProxy();
+        }
+        super.onDestroy();
+    }
 }
