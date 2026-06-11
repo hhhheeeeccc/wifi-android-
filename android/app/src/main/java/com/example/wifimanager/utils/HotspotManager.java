@@ -43,7 +43,7 @@ public class HotspotManager {
     private String getSuPath() {
         if (new File(SU_BIN_1).exists()) return SU_BIN_1;
         if (new File(SU_BIN_2).exists()) return SU_BIN_2;
-        return "su"; // Fallback to PATH if not found in standard locations, though Sonar might flag this
+        return "su";
     }
 
     public int setHotspotEnabled(boolean enabled, String ssid, String password) {
@@ -74,9 +74,16 @@ public class HotspotManager {
             if (enabled) {
                 os.writeBytes(CMD_BIN + " tethering start-tethering 0\n");
                 os.writeBytes(SETTINGS_BIN + " put global tether_offload_disabled 1\n");
+                // Optimization: Ensure IP forwarding and NAT for internet sharing
+                os.writeBytes("echo 1 > /proc/sys/net/ipv4/ip_forward\n");
+                os.writeBytes(IPTABLES_BIN + " -t nat -A POSTROUTING -j MASQUERADE\n");
             } else {
                 os.writeBytes(CMD_BIN + " tethering stop-tethering 0\n");
                 os.writeBytes(SVC_BIN + " wifi disable-tethering\n");
+                // Force Stop: Kill related processes and reset WiFi
+                os.writeBytes("pkill hostapd\n");
+                os.writeBytes("pkill dnsmasq\n");
+                os.writeBytes(SVC_BIN + " wifi enable\n");
             }
             os.writeBytes(EXIT_CMD);
             os.flush();
@@ -175,10 +182,23 @@ public class HotspotManager {
 
     public boolean isHotspotEnabled() {
         try {
+            // Priority 1: Check LocalOnlyHotspot
+            if (hotspotReservation != null) return true;
+
+            // Priority 2: Use reflection to get system AP state
             Method method = wifiManager.getClass().getDeclaredMethod("getWifiApState");
             int state = (Integer) method.invoke(wifiManager);
-            return state == 13 || state == 12 || hotspotReservation != null;
+            // 13 = WIFI_AP_STATE_ENABLED, 12 = WIFI_AP_STATE_ENABLING
+            if (state == 13 || state == 12) return true;
+
+            // Priority 3: Check via ConnectivityManager (tethered interfaces)
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            Method getTetheredIfacesMethod = cm.getClass().getDeclaredMethod("getTetheredIfaces");
+            String[] ifaces = (String[]) getTetheredIfacesMethod.invoke(cm);
+            return ifaces != null && ifaces.length > 0;
+
         } catch (Exception e) {
+            Log.e(TAG, "Error checking hotspot state", e);
             return false;
         }
     }

@@ -29,4 +29,7 @@
     <string name="data_limit_hint">Enter limit (MB)</string>
     <string name="speed_limit_title">Internet Speed Limit</string>
     <string name="speed_limit_hint">Enter max speed</string>
+    <string name="hotspot_stopping">Stopping hotspot, please wait...</string>
+    <string name="hotspot_starting">Starting hotspot, please wait...</string>
+    <string name="hotspot_stopped_success">Hotspot stopped successfully.</string>
 </resources>
