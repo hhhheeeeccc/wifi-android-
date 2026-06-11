@@ -4,31 +4,33 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.IOException;
 
-public class HandlerThread extends Thread {
-    private final ProxyManager pm; private final Socket s;
-    public HandlerThread(ProxyManager pm, Socket s) { this.pm = pm; this.s = s; }
+public class HandlerThread implements Runnable {
+    private final ProxyManager pm; private final Socket clientSocket;
+    public HandlerThread(ProxyManager pm, Socket s) { this.pm = pm; this.clientSocket = s; }
     @Override public void run() {
-        String ip = s.getInetAddress().getHostAddress();
-        if (pm.isBlk(ip)) { try { s.close(); } catch (IOException e) {} return; }
+        if (clientSocket == null || clientSocket.getInetAddress() == null) return;
+        String ip = clientSocket.getInetAddress().getHostAddress();
+        if (pm.isIpBlocked(ip)) { try { clientSocket.close(); } catch (IOException ignored) {} return; }
 
-        Socket r = null;
+        Socket remoteSocket = null;
         try {
-            InputStream in = s.getInputStream(); OutputStream out = s.getOutputStream();
-            byte[] b = new byte[8192]; int n = in.read(b); if (n <= 0) return;
-            String h = new String(b, 0, n); String host = null;
-            for (String l : h.split("\r\n")) { if (l.toLowerCase().startsWith("host:")) host = l.substring(5).trim().split(":")[0]; }
-            if (host == null) return;
+            InputStream in = clientSocket.getInputStream(); OutputStream out = clientSocket.getOutputStream();
+            byte[] buffer = new byte[8192]; int n = in.read(buffer);
+            if (n <= 0) { clientSocket.close(); return; }
 
-            r = new Socket(host, h.contains("CONNECT") ? 443 : 80);
-            if (h.contains("CONNECT")) { out.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes()); out.flush(); }
-            else { r.getOutputStream().write(b, 0, n); }
+            String header = new String(buffer, 0, n);
+            String host = pm.parseHost(header);
+            if (host == null) { clientSocket.close(); return; }
 
-            PThread t1 = new PThread(ip, in, r.getOutputStream(), pm, s, r);
-            PThread t2 = new PThread(ip, r.getInputStream(), out, pm, s, r);
-            t1.start(); t2.start();
+            remoteSocket = new Socket(host, header.contains("CONNECT") ? 443 : 80);
+            if (header.contains("CONNECT")) { out.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes()); out.flush(); }
+            else { remoteSocket.getOutputStream().write(buffer, 0, n); }
+
+            pm.submitTask(new PThread(ip, in, remoteSocket.getOutputStream(), pm, clientSocket, remoteSocket));
+            pm.submitTask(new PThread(ip, remoteSocket.getInputStream(), out, pm, clientSocket, remoteSocket));
         } catch (Exception e) {
-            try { s.close(); } catch (IOException ignored) {}
-            try { if (r != null) r.close(); } catch (IOException ignored) {}
+            try { clientSocket.close(); } catch (IOException ignored) {}
+            try { if (remoteSocket != null) remoteSocket.close(); } catch (IOException ignored) {}
         }
     }
 }

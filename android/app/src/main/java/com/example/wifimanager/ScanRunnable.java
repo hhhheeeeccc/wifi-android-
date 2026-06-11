@@ -10,7 +10,7 @@ public class ScanRunnable implements Runnable {
         this.a = a; this.r = r; this.ad = ad; this.h = h;
     }
     @Override public void run() {
-        if (!a.scan) return;
+        if (!a.scanActive) return;
         ad.update(r.getConnectedDevices());
         h.postDelayed(this, 5000);
     }

@@ -24,7 +24,7 @@ public class UsageMonitorService extends Service {
     public void checkUsage() {
         List<Device> ds = r.getConnectedDevices();
         for (Device d : ds) {
-            long u = pm.getUse(d.getIpAddress());
+            long u = pm.getAndResetUsage(d.getIpAddress());
             if (u > 0) {
                 long total = d.getUsedData() + (u / (1024 * 1024));
                 d.setUsedData(total);
