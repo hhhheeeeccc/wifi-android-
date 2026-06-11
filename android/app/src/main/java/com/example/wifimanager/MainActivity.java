@@ -55,13 +55,34 @@ public class MainActivity extends AppCompatActivity {
             }
 
             boolean currentState = hotspotManager.isHotspotEnabled();
-            int result = hotspotManager.setHotspotEnabled(!currentState, ssid, password);
+            boolean nextState = !currentState;
 
-            if (result > 0) {
-                updateStatus(!currentState);
-            } else {
-                Toast.makeText(this, R.string.toggle_failed, Toast.LENGTH_SHORT).show();
-            }
+            // Show feedback
+            Toast.makeText(this, nextState ? R.string.hotspot_starting : R.string.hotspot_stopping, Toast.LENGTH_SHORT).show();
+            binding.toggleHotspot.setEnabled(false);
+
+            Executors.newSingleThreadExecutor().execute(() -> {
+                int result = hotspotManager.setHotspotEnabled(nextState, ssid, password);
+
+                // Delay to allow system state to stabilize
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ignored) {}
+
+                uiHandler.post(() -> {
+                    binding.toggleHotspot.setEnabled(true);
+                    boolean realState = hotspotManager.isHotspotEnabled();
+                    updateStatus(realState);
+
+                    if (result > 0) {
+                        if (!nextState && !realState) {
+                            Toast.makeText(this, R.string.hotspot_stopped_success, Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.toggle_failed, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            });
         });
 
         binding.proxyBtn.setOnClickListener(v -> {
@@ -82,20 +103,15 @@ public class MainActivity extends AppCompatActivity {
         else stopDeviceScan();
     }
 
-    /**
-     * Periodic device scanning.
-     * Optimization: Offloads ARP table parsing to a background thread to prevent UI stuttering.
-     */
     private void startDeviceScan() {
         if (scanExecutor == null || scanExecutor.isShutdown()) {
             scanExecutor = Executors.newSingleThreadScheduledExecutor();
             scanExecutor.scheduleAtFixedRate(() -> {
-                // Background thread: I/O operation
                 List<Device> devices = repository.getConnectedDevices();
-                // Post result to UI thread
                 uiHandler.post(() -> {
                     if (!isFinishing() && !isDestroyed()) {
                         adapter.updateDevices(devices);
+                        updateEmptyState(devices);
                     }
                 });
             }, 0, 5, TimeUnit.SECONDS);
@@ -112,9 +128,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (hotspotManager.isHotspotEnabled()) {
-            startDeviceScan();
-        }
+        updateStatus(hotspotManager.isHotspotEnabled());
     }
 
     @Override
@@ -131,11 +145,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateEmptyState(List<Device> devices) {
         if (devices.isEmpty()) {
-            binding.emptyStateText.setVisibility(android.view.View.VISIBLE);
-            binding.devicesRecyclerView.setVisibility(android.view.View.GONE);
+            binding.emptyStateText.setVisibility(View.VISIBLE);
+            binding.devicesRecyclerView.setVisibility(View.GONE);
         } else {
-            binding.emptyStateText.setVisibility(android.view.View.GONE);
-            binding.devicesRecyclerView.setVisibility(android.view.View.VISIBLE);
+            binding.emptyStateText.setVisibility(View.GONE);
+            binding.devicesRecyclerView.setVisibility(View.VISIBLE);
         }
     }
 }

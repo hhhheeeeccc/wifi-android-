@@ -29,4 +29,7 @@
     <string name="data_limit_hint">أدخل الحد (ميجا بايت)</string>
     <string name="speed_limit_title">تحديد سرعة الإنترنت</string>
     <string name="speed_limit_hint">أدخل السرعة القصوى</string>
+    <string name="hotspot_stopping">جاري إيقاف البث، يرجى الانتظار...</string>
+    <string name="hotspot_starting">جاري بدء البث، يرجى الانتظار...</string>
+    <string name="hotspot_stopped_success">تم إيقاف البث بنجاح.</string>
 </resources>
