@@ -1,74 +1,31 @@
 package com.example.wifimanager.utils;
-
-import android.util.Log;
-import java.io.IOException;
+import android.content.Context;
+import com.example.wifimanager.model.Device;
+import com.example.wifimanager.repository.HotspotRepository;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 public class ProxyManager {
-    private static final int DEFAULT_PORT = 8080;
-    private static final String TAG = "ProxyManager";
-    private ServerSocket serverSocket;
-    private volatile boolean isRunning = false;
-    private ExecutorService executorService;
-
-    public synchronized void startProxy() {
-        if (isRunning) return;
-        isRunning = true;
-        executorService = Executors.newSingleThreadExecutor();
-        executorService.execute(() -> {
-            try {
-                // Binding to a specific port to allow proxying for hotspot clients.
-                serverSocket = new ServerSocket(DEFAULT_PORT);
-                Log.d(TAG, "Proxy started on port " + DEFAULT_PORT);
-                while (isRunning) {
-                    try {
-                        Socket clientSocket = serverSocket.accept();
-                        handleClient(clientSocket);
-                    } catch (IOException e) {
-                        if (isRunning) Log.e(TAG, "Error accepting connection", e);
-                    }
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Proxy server error", e);
-            } finally {
-                cleanup();
-            }
-        });
-    }
-
-    private void handleClient(Socket socket) {
-        try {
-            if (socket != null) {
-                socket.close();
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Error closing client socket", e);
-        }
-    }
-
-    public synchronized void stopProxy() {
-        isRunning = false;
-        if (executorService != null) {
-            executorService.shutdownNow();
-            executorService = null;
-        }
-        cleanup();
-    }
-
-    private void cleanup() {
-        try {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Error closing server socket", e);
-        }
-    }
-
-    public int getPort() {
-        return DEFAULT_PORT;
+    public final HotspotRepository repo;
+    public ServerSocket ss;
+    public boolean run = false;
+    public final Map<String, Long> use = new HashMap<String, Long>();
+    public final Map<String, Boolean> blk = new HashMap<String, Boolean>();
+    public final Map<String, Integer> spd = new HashMap<String, Integer>();
+    public long last = 0;
+    public ProxyManager(Context c) { this.repo = new HotspotRepository(c); }
+    public synchronized void startProxy() { if (!run) { run = true; new ProxyThread(this).start(); } }
+    public synchronized void stopProxy() { run = false; try { if (ss != null) ss.close(); } catch (Exception e) {} }
+    public synchronized void addUse(String ip, int n) { Long c = use.get(ip); use.put(ip, (c == null ? 0L : c) + n); }
+    public synchronized long getUse(String ip) { Long v = use.remove(ip); return v == null ? 0L : v; }
+    public synchronized boolean isBlk(String ip) { update(); Boolean b = blk.get(ip); return b != null && b; }
+    public synchronized int getSpd(String ip) { update(); Integer s = spd.get(ip); return s == null ? 0 : s; }
+    private void update() {
+        if (System.currentTimeMillis() - last < 5000) return;
+        List<Device> ds = repo.getConnectedDevices();
+        blk.clear(); spd.clear();
+        for (Device d : ds) { blk.put(d.getIpAddress(), d.isBlocked()); spd.put(d.getIpAddress(), d.getSpeedLimit()); }
+        last = System.currentTimeMillis();
     }
 }

@@ -1,102 +1,44 @@
 package com.example.wifimanager;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
-import android.widget.Toast;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import com.example.wifimanager.databinding.ActivityMainBinding;
-import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
 import java.util.ArrayList;
-import java.util.List;
-
-public class MainActivity extends AppCompatActivity {
-    private ActivityMainBinding binding;
-    private HotspotManager hotspotManager;
-    private HotspotRepository repository;
-    private DeviceAdapter adapter;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private boolean isScanning = false;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
-
-        hotspotManager = new HotspotManager(this);
-        repository = new HotspotRepository(this);
-
-        setupUI();
-        startService(new Intent(this, UsageMonitorService.class));
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    public HotspotManager hm; public HotspotRepository repo; public DeviceAdapter adp;
+    public TextView lbl; public Button btn, pBtn; public EditText ssid, pass; public View lay; public ListView lv;
+    public boolean scan = false; public Handler h = new Handler();
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState); setContentView(R.layout.activity_main);
+        lbl = (TextView) findViewById(R.id.statusLabel); btn = (Button) findViewById(R.id.toggleHotspot);
+        ssid = (EditText) findViewById(R.id.ssidInput); pass = (EditText) findViewById(R.id.passwordInput);
+        lay = findViewById(R.id.proxyLayout); pBtn = (Button) findViewById(R.id.proxyBtn);
+        lv = (ListView) findViewById(R.id.devicesRecyclerView);
+        hm = new HotspotManager(this); repo = new HotspotRepository(this);
+        adp = new DeviceAdapter(this, new ArrayList()); lv.setAdapter(adp);
+        btn.setOnClickListener(this); pBtn.setOnClickListener(this);
+        updateUI(); startService(new Intent(this, UsageMonitorService.class));
     }
-
-    private void setupUI() {
-        binding.devicesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new DeviceAdapter(new ArrayList<>(), this);
-        binding.devicesRecyclerView.setAdapter(adapter);
-
-        binding.toggleHotspot.setOnClickListener(v -> {
-            String ssid = binding.ssidInput.getText().toString();
-            String password = binding.passwordInput.getText().toString();
-
-            if (password.length() < 8) {
-                Toast.makeText(this, R.string.password_error, Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            boolean currentState = hotspotManager.isHotspotEnabled();
-            int result = hotspotManager.setHotspotEnabled(!currentState, ssid, password);
-
-            if (result > 0) {
-                updateStatus(!currentState);
-            } else {
-                Toast.makeText(this, "Failed to toggle hotspot", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        binding.proxyBtn.setOnClickListener(v -> {
-            if (binding.proxyLayout.getVisibility() == android.view.View.VISIBLE) {
-                binding.proxyLayout.setVisibility(android.view.View.GONE);
-            } else {
-                binding.proxyLayout.setVisibility(android.view.View.VISIBLE);
-            }
-        });
-
-        updateStatus(hotspotManager.isHotspotEnabled());
+    @Override public void onClick(View v) {
+        if (v.getId() == R.id.toggleHotspot) {
+            String s = ssid.getText().toString(); String p = pass.getText().toString();
+            if (p.length() < 8) return;
+            boolean a = hm.isHotspotEnabled();
+            if (hm.setHotspotEnabled(!a, s, p) > 0) updateUI();
+        } else if (v.getId() == R.id.proxyBtn) {
+            lay.setVisibility(lay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+        }
     }
-
-    private void updateStatus(boolean active) {
-        binding.statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
-        binding.toggleHotspot.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
-        if (active) startDeviceScan();
-        else stopDeviceScan();
-    }
-
-    private void startDeviceScan() {
-        isScanning = true;
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (!isScanning) return;
-                List<Device> devices = repository.getConnectedDevices();
-                adapter.updateDevices(devices);
-                handler.postDelayed(this, 5000);
-            }
-        });
-    }
-
-    private void stopDeviceScan() {
-        isScanning = false;
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        stopDeviceScan();
+    public void updateUI() {
+        boolean a = hm.isHotspotEnabled();
+        lbl.setText(a ? "Active" : "Inactive"); btn.setText(a ? "Stop" : "Start");
+        if (a && !scan) { scan = true; h.post(new STask(this)); } else if (!a) scan = false;
     }
 }
