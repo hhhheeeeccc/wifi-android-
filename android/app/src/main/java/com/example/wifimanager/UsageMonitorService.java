@@ -1,7 +1,6 @@
 package com.example.wifimanager;
 import android.app.Service;
 import android.content.Intent;
-import android.os.Handler;
 import android.os.IBinder;
 import com.example.wifimanager.utils.ProxyManager;
 import com.example.wifimanager.repository.HotspotRepository;

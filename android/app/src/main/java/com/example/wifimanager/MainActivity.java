@@ -41,4 +41,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         lbl.setText(a ? "Active" : "Inactive"); btn.setText(a ? "Stop" : "Start");
         if (a && !scan) { scan = true; h.post(new STask(this)); } else if (!a) scan = false;
     }
+
+    private void updateEmptyState(List<Device> devices) {
+        if (devices.isEmpty()) {
+            binding.emptyStateText.setVisibility(View.VISIBLE);
+            binding.devicesRecyclerView.setVisibility(View.GONE);
+        } else {
+            binding.emptyStateText.setVisibility(View.GONE);
+            binding.devicesRecyclerView.setVisibility(View.VISIBLE);
+        }
+    }
 }
