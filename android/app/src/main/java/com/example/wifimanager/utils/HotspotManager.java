@@ -1,10 +1,13 @@
 package com.example.wifimanager.utils;
+
+import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Build;
-import android.provider.Settings;
+import android.os.Handler;
+import android.os.Looper;
+
 import java.io.DataOutputStream;
 import java.io.File;
 import java.lang.reflect.Method;
@@ -15,6 +18,13 @@ public class HotspotManager {
     private final Context ctx;
     private final WifiManager wm;
     private static final List<String> BIN_PATHS = Arrays.asList("/system/bin/", "/system/xbin/", "/sbin/");
+    WifiManager.LocalOnlyHotspotReservation hotspotReservation;
+
+    public interface OnHotspotStateListener {
+        void onStarted(String ssid, String password);
+        void onStopped();
+        void onFailure(int reason);
+    }
 
     public HotspotManager(Context c) {
         this.ctx = c;
@@ -30,18 +40,28 @@ public class HotspotManager {
     }
 
     public int setHotspotEnabled(boolean en, String s, String p) {
+        if (!en) {
+            stopLocalOnlyHotspot();
+        }
+
         String su = getBin("su");
-        if (su != null) { try {
-            Process pr = new ProcessBuilder(su).start();
-            DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-            os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
-            os.flush();
-            os.close();
-            return 1;
-        } catch (Exception e) {
-            // Root method failed
-        } }
-        if (Build.VERSION.SDK_INT >= 26) return 2;
+        if (su != null) {
+            try {
+                Process pr = new ProcessBuilder(su).start();
+                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
+                os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
+                os.flush();
+                os.close();
+                return 1;
+            } catch (Exception e) {
+                // Root method failed
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= 26) {
+            return 2;
+        }
+
         try {
             if (en) wm.setWifiEnabled(false);
             WifiConfiguration conf = new WifiConfiguration();
@@ -52,17 +72,35 @@ public class HotspotManager {
             }
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
-            return (res instanceof Boolean && (Boolean)res) ? 4 : 0;
+            return (res instanceof Boolean && (Boolean) res) ? 4 : 0;
         } catch (Exception e) {
             return 0;
         }
     }
 
+    @SuppressLint("MissingPermission")
+    public void startLocalOnlyHotspot(final OnHotspotStateListener listener) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            Handler handler = new Handler(Looper.getMainLooper());
+            wm.startLocalOnlyHotspot(new LocalHotspotCallback(this, listener), handler);
+        } else if (listener != null) {
+            listener.onFailure(-1);
+        }
+    }
+
+    public void stopLocalOnlyHotspot() {
+        if (hotspotReservation != null) {
+            hotspotReservation.close();
+            hotspotReservation = null;
+        }
+    }
+
     public boolean isHotspotEnabled() {
+        if (hotspotReservation != null) return true;
         try {
             Method m = wm.getClass().getDeclaredMethod("getWifiApState");
             Object res = m.invoke(wm);
-            return res instanceof Integer && (Integer)res >= 12;
+            return res instanceof Integer && (Integer) res >= 12;
         } catch (Exception e) {
             return false;
         }
@@ -72,32 +110,65 @@ public class HotspotManager {
         if (mac == null || !mac.contains(":")) return;
         String su = getBin("su");
         String ipt = getBin("iptables");
-        if (su != null && ipt != null) { try {
-            Process pr = new ProcessBuilder(su).start();
-            DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-            os.writeBytes(ipt + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
-            os.flush();
-            os.close();
-        } catch (Exception e) {
-            // Block failed
-        } }
+        if (su != null && ipt != null) {
+            try {
+                Process pr = new ProcessBuilder(su).start();
+                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
+                os.writeBytes(ipt + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
+                os.flush();
+                os.close();
+            } catch (Exception e) {
+                // Block failed
+            }
+        }
     }
 
     public void limitSpeed(String mac, int k) {
         if (mac == null) return;
         String su = getBin("su");
         String tc = getBin("tc");
-        if (su != null && tc != null) { try {
-            Process pr = new ProcessBuilder(su).start();
-            DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-            // Using parameters to construct command
-            os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\n");
-            os.writeBytes(tc + " class add dev wlan0 parent 1: classid 1:1 htb rate " + k + "kbps ceil " + k + "kbps\n");
-            os.writeBytes("exit\n");
-            os.flush();
-            os.close();
-        } catch (Exception e) {
-            // Limit failed
-        } }
+        if (su != null && tc != null) {
+            try {
+                Process pr = new ProcessBuilder(su).start();
+                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
+                os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\n");
+                os.writeBytes(tc + " class add dev wlan0 parent 1: classid 1:1 htb rate " + k + "kbps ceil " + k + "kbps\n");
+                os.writeBytes("exit\n");
+                os.flush();
+                os.close();
+            } catch (Exception e) {
+                // Limit failed
+            }
+        }
+    }
+}
+
+class LocalHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
+    private final HotspotManager manager;
+    private final HotspotManager.OnHotspotStateListener listener;
+
+    LocalHotspotCallback(HotspotManager manager, HotspotManager.OnHotspotStateListener listener) {
+        this.manager = manager;
+        this.listener = listener;
+    }
+
+    @Override
+    public void onStarted(WifiManager.LocalOnlyHotspotReservation reservation) {
+        manager.hotspotReservation = reservation;
+        if (listener != null) {
+            WifiConfiguration config = reservation.getWifiConfiguration();
+            listener.onStarted(config.SSID, config.preSharedKey);
+        }
+    }
+
+    @Override
+    public void onStopped() {
+        manager.hotspotReservation = null;
+        if (listener != null) listener.onStopped();
+    }
+
+    @Override
+    public void onFailed(int reason) {
+        if (listener != null) listener.onFailure(reason);
     }
 }
