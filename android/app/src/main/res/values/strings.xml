@@ -22,4 +22,8 @@
     <string name="starting_local_hotspot">Starting LocalOnly hotspot...</string>
     <string name="location_required">Location permission is required to enable hotspot</string>
     <string name="gps_required">Location services (GPS) must be enabled to start hotspot</string>
+    <string name="manual_hotspot_title">Manual Hotspot Required</string>
+    <string name="manual_hotspot_message">On Android 10 and above, applications cannot share internet programmatically. Please open system settings to enable your Hotspot with internet sharing.</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="cancel">Cancel</string>
 </resources>
