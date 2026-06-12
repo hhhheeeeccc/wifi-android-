@@ -16,5 +16,5 @@
     <string name="proxy_info">للتحكم في الأجهزة (بدون روت):</string>
     <string name="proxy_host">المضيف: 192.168.43.1</string>
     <string name="proxy_port">المنفذ: 8080</string>
-    <string name="proxy_instruction">ملاحظة: يجب ضبط البروكسي يدوياً في الجهاز المتصل لتفعيل القيود.</string>
+    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على 192.168.43.1:8080 للوصول للإنترنت وتطبيق القيود.</string>
 </resources>
