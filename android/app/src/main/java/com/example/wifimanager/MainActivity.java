@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -20,6 +21,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
@@ -33,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener {
+    private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 123;
     private HotspotManager hotspotManager;
     private HotspotRepository hotspotRepo;
@@ -170,7 +173,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             qrCodeImg.setImageBitmap(bitmap);
             qrCodeImg.setVisibility(View.VISIBLE);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error generating QR code", e);
         }
     }
 
