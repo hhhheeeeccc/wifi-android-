@@ -15,6 +15,6 @@ public class ScanRunnable implements Runnable {
     @Override public void run() {
         if (!a.isScanActive()) return;
         ad.update(r.getConnectedDevices());
-        h.postDelayed(this, 3000);
+        h.postDelayed(this, 5000);
     }
 }
