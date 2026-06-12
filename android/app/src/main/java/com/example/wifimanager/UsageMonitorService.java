@@ -22,8 +22,11 @@ public class UsageMonitorService extends Service {
     private ProxyManager proxyManager;
     private volatile boolean isRunning = false;
     private static final String CHANNEL_ID = "proxy_service_channel";
+    private final IBinder binder = new LocalBinder(this);
 
     public boolean isRunning() { return isRunning; }
+
+    public ProxyManager getProxyManager() { return proxyManager; }
 
     @Override public void onCreate() {
         super.onCreate();
@@ -64,7 +67,8 @@ public class UsageMonitorService extends Service {
 
     public void checkUsage() {
         List<Device> devices = repository.getConnectedDevices();
-        for (Device device : devices) {
+        for (int i = 0; i < devices.size(); i++) {
+            Device device = devices.get(i);
             long usageBytes = proxyManager.getAndResetUsage(device.getIpAddress());
             if (usageBytes > 0) {
                 long currentBytes = device.getUsedData() * 1024 * 1024;
@@ -79,7 +83,7 @@ public class UsageMonitorService extends Service {
         }
     }
 
-    @Override public IBinder onBind(Intent intent) { return null; }
+    @Override public IBinder onBind(Intent intent) { return binder; }
 
     @Override public void onDestroy() {
         isRunning = false;

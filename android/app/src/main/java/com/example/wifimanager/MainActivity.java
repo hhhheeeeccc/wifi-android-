@@ -1,15 +1,17 @@
 package com.example.wifimanager;
 
 import android.Manifest;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.content.Context;
 import android.location.LocationManager;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
@@ -23,11 +25,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
+import com.example.wifimanager.utils.ProxyManager;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.common.BitMatrix;
@@ -36,7 +38,7 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener, ServiceConnection {
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 123;
     private HotspotManager hotspotManager;
@@ -54,6 +56,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private View proxyInfoLay;
     private ListView devicesListView;
     private ImageView qrCodeImg;
+    private TextView proxyHostTxt;
+    private TextView proxyInstructionTxt;
+
+    private UsageMonitorService usageService;
+    private boolean isBound = false;
+
+    @Override
+    public void onServiceConnected(ComponentName className, IBinder service) {
+        LocalBinder binder = (LocalBinder) service;
+        usageService = binder.getService();
+        isBound = true;
+        updateUI();
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName arg0) {
+        isBound = false;
+    }
 
     public boolean isScanActive() { return scanActive; }
 
@@ -68,6 +88,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         proxyConfigBtn = (Button) findViewById(R.id.proxyBtn);
         devicesListView = (ListView) findViewById(R.id.devicesRecyclerView);
         qrCodeImg = (ImageView) findViewById(R.id.qrCodeImage);
+        proxyHostTxt = (TextView) findViewById(R.id.proxy_host_txt);
+        proxyInstructionTxt = (TextView) findViewById(R.id.proxy_instruction);
 
         hotspotManager = new HotspotManager(this);
         hotspotRepo = new HotspotRepository(this);
@@ -79,8 +101,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         singleThreadPool = Executors.newSingleThreadExecutor();
 
-        updateUI();
-        startService(new Intent(this, UsageMonitorService.class));
+        Intent intent = new Intent(this, UsageMonitorService.class);
+        startService(intent);
+        bindService(intent, this, Context.BIND_AUTO_CREATE);
 
         checkAndRequestPermissions();
     }
@@ -116,7 +139,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return;
         }
 
-        // Check GPS state before enabling hotspot
         if (!isGPSEnabled()) {
             Toast.makeText(this, R.string.gps_required, Toast.LENGTH_LONG).show();
             try {
@@ -201,12 +223,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         boolean active = hotspotManager.isHotspotEnabled();
         statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
         toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
+
+        if (isBound && usageService != null) {
+            ProxyManager pm = usageService.getProxyManager();
+            if (pm != null) {
+                String host = pm.getHostIp();
+                proxyHostTxt.setText(getString(R.string.proxy_host, host));
+                proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
+            }
+        }
+
         if (active) {
             if (!scanActive) {
                 scanActive = true;
                 mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
             }
-            // Also ensure QR code is generated if SSID/pass are available
             String s = ssidInput.getText().toString();
             String p = passInput.getText().toString();
             if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
@@ -224,13 +255,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             singleThreadPool.shutdownNow();
             singleThreadPool = null;
         }
+        if (isBound) {
+            unbindService(this);
+            isBound = false;
+        }
         super.onDestroy();
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Permission granted, do nothing yet
+            // Permission granted
         }
     }
 }
