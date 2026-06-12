@@ -9,8 +9,9 @@ public class ProxyThread extends Thread {
     public ProxyThread(ProxyManager pm) { this.pm = pm; }
     @Override public void run() {
         try {
-            // Bind to the specific hotspot gateway IP to resolve security hotspot and ensure connectivity
-            ServerSocket ss = new ServerSocket(8080, 50, InetAddress.getByName("192.168.43.1"));
+            // Bind to the hotspot gateway IP (192.168.43.1) to ensure proxy connectivity only on the hotspot interface
+            byte[] ipAddr = new byte[]{(byte)192, (byte)168, 43, 1};
+            ServerSocket ss = new ServerSocket(8080, 50, InetAddress.getByAddress(ipAddr));
             pm.setServerSocket(ss);
             while (pm.isRunning()) {
                 final Socket socket = ss.accept();
