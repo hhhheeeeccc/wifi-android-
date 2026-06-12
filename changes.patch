@@ -1,0 +1,477 @@
+diff --git a/android/app/src/main/java/com/example/wifimanager/LocalBinder.java b/android/app/src/main/java/com/example/wifimanager/LocalBinder.java
+new file mode 100644
+index 0000000..4bfc50f
+--- /dev/null
++++ b/android/app/src/main/java/com/example/wifimanager/LocalBinder.java
+@@ -0,0 +1,11 @@
++package com.example.wifimanager;
++import android.os.Binder;
++public class LocalBinder extends Binder {
++    private final UsageMonitorService service;
++    public LocalBinder(UsageMonitorService service) {
++        this.service = service;
++    }
++    public UsageMonitorService getService() {
++        return service;
++    }
++}
+diff --git a/android/app/src/main/java/com/example/wifimanager/MainActivity.java b/android/app/src/main/java/com/example/wifimanager/MainActivity.java
+index 18af0d4..de4e7cf 100644
+--- a/android/app/src/main/java/com/example/wifimanager/MainActivity.java
++++ b/android/app/src/main/java/com/example/wifimanager/MainActivity.java
+@@ -1,15 +1,17 @@
+ package com.example.wifimanager;
+
+ import android.Manifest;
++import android.content.ComponentName;
+ import android.content.Intent;
++import android.content.ServiceConnection;
+ import android.content.pm.PackageManager;
+ import android.graphics.Bitmap;
+-import android.graphics.Color;
+ import android.os.Build;
+ import android.os.Bundle;
+ import android.content.Context;
+ import android.location.LocationManager;
+ import android.os.Handler;
++import android.os.IBinder;
+ import android.os.Looper;
+ import android.provider.Settings;
+ import android.util.Log;
+@@ -23,11 +25,11 @@ import android.widget.Toast;
+ import androidx.annotation.NonNull;
+ import androidx.appcompat.app.AppCompatActivity;
+ import androidx.core.app.ActivityCompat;
+-import androidx.core.app.NotificationCompat;
+ import androidx.core.content.ContextCompat;
+ import com.example.wifimanager.model.Device;
+ import com.example.wifimanager.repository.HotspotRepository;
+ import com.example.wifimanager.utils.HotspotManager;
++import com.example.wifimanager.utils.ProxyManager;
+ import com.google.zxing.BarcodeFormat;
+ import com.google.zxing.MultiFormatWriter;
+ import com.google.zxing.common.BitMatrix;
+@@ -36,7 +38,7 @@ import java.util.ArrayList;
+ import java.util.concurrent.ExecutorService;
+ import java.util.concurrent.Executors;
+
+-public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener {
++public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener, ServiceConnection {
+     private static final String TAG = "MainActivity";
+     private static final int PERMISSION_REQUEST_CODE = 123;
+     private HotspotManager hotspotManager;
+@@ -54,6 +56,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
+     private View proxyInfoLay;
+     private ListView devicesListView;
+     private ImageView qrCodeImg;
++    private TextView proxyHostTxt;
++    private TextView proxyInstructionTxt;
++
++    private UsageMonitorService usageService;
++    private boolean isBound = false;
++
++    @Override
++    public void onServiceConnected(ComponentName className, IBinder service) {
++        LocalBinder binder = (LocalBinder) service;
++        usageService = binder.getService();
++        isBound = true;
++        updateUI();
++    }
++
++    @Override
++    public void onServiceDisconnected(ComponentName arg0) {
++        isBound = false;
++    }
+
+     public boolean isScanActive() { return scanActive; }
+
+@@ -68,6 +88,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
+         proxyConfigBtn = (Button) findViewById(R.id.proxyBtn);
+         devicesListView = (ListView) findViewById(R.id.devicesRecyclerView);
+         qrCodeImg = (ImageView) findViewById(R.id.qrCodeImage);
++        proxyHostTxt = (TextView) findViewById(R.id.proxy_host_txt);
++        proxyInstructionTxt = (TextView) findViewById(R.id.proxy_instruction);
+
+         hotspotManager = new HotspotManager(this);
+         hotspotRepo = new HotspotRepository(this);
+@@ -79,8 +101,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
+
+         singleThreadPool = Executors.newSingleThreadExecutor();
+
+-        updateUI();
+-        startService(new Intent(this, UsageMonitorService.class));
++        Intent intent = new Intent(this, UsageMonitorService.class);
++        startService(intent);
++        bindService(intent, this, Context.BIND_AUTO_CREATE);
+
+         checkAndRequestPermissions();
+     }
+@@ -116,7 +139,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
+             return;
+         }
+
+-        // Check GPS state before enabling hotspot
+         if (!isGPSEnabled()) {
+             Toast.makeText(this, R.string.gps_required, Toast.LENGTH_LONG).show();
+             try {
+@@ -201,12 +223,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
+         boolean active = hotspotManager.isHotspotEnabled();
+         statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
+         toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
++
++        if (isBound && usageService != null) {
++            ProxyManager pm = usageService.getProxyManager();
++            if (pm != null) {
++                String host = pm.getHostIp();
++                proxyHostTxt.setText(getString(R.string.proxy_host, host));
++                proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
++            }
++        }
++
+         if (active) {
+             if (!scanActive) {
+                 scanActive = true;
+                 mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
+             }
+-            // Also ensure QR code is generated if SSID/pass are available
+             String s = ssidInput.getText().toString();
+             String p = passInput.getText().toString();
+             if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
+@@ -224,13 +255,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
+             singleThreadPool.shutdownNow();
+             singleThreadPool = null;
+         }
++        if (isBound) {
++            unbindService(this);
++            isBound = false;
++        }
+         super.onDestroy();
+     }
+
+     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+         if (requestCode == PERMISSION_REQUEST_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+-            // Permission granted, do nothing yet
++            // Permission granted
+         }
+     }
+ }
+diff --git a/android/app/src/main/java/com/example/wifimanager/UsageMonitorService.java b/android/app/src/main/java/com/example/wifimanager/UsageMonitorService.java
+index 02ab017..11e8de8 100644
+--- a/android/app/src/main/java/com/example/wifimanager/UsageMonitorService.java
++++ b/android/app/src/main/java/com/example/wifimanager/UsageMonitorService.java
+@@ -22,9 +22,12 @@ public class UsageMonitorService extends Service {
+     private ProxyManager proxyManager;
+     private volatile boolean isRunning = false;
+     private static final String CHANNEL_ID = "proxy_service_channel";
++    private final IBinder binder = new LocalBinder(this);
+
+     public boolean isRunning() { return isRunning; }
+
++    public ProxyManager getProxyManager() { return proxyManager; }
++
+     @Override public void onCreate() {
+         super.onCreate();
+         repository = new HotspotRepository(this);
+@@ -64,7 +67,8 @@ public class UsageMonitorService extends Service {
+
+     public void checkUsage() {
+         List<Device> devices = repository.getConnectedDevices();
+-        for (Device device : devices) {
++        for (int i = 0; i < devices.size(); i++) {
++            Device device = devices.get(i);
+             long usageBytes = proxyManager.getAndResetUsage(device.getIpAddress());
+             if (usageBytes > 0) {
+                 long currentBytes = device.getUsedData() * 1024 * 1024;
+@@ -79,7 +83,7 @@ public class UsageMonitorService extends Service {
+         }
+     }
+
+-    @Override public IBinder onBind(Intent intent) { return null; }
++    @Override public IBinder onBind(Intent intent) { return binder; }
+
+     @Override public void onDestroy() {
+         isRunning = false;
+diff --git a/android/app/src/main/java/com/example/wifimanager/repository/HotspotRepository.java b/android/app/src/main/java/com/example/wifimanager/repository/HotspotRepository.java
+index f536de0..cbd268d 100644
+--- a/android/app/src/main/java/com/example/wifimanager/repository/HotspotRepository.java
++++ b/android/app/src/main/java/com/example/wifimanager/repository/HotspotRepository.java
+@@ -6,14 +6,22 @@ import java.io.BufferedReader;
+ import java.io.FileReader;
+ import java.io.IOException;
+ import java.util.ArrayList;
++import java.util.HashSet;
+ import java.util.List;
++import java.util.Set;
+
+ public class HotspotRepository {
+     private final SharedPreferences p;
++    private static final Set<String> activeIps = new HashSet<String>();
++
+     public HotspotRepository(Context c) {
+         this.p = c.getApplicationContext().getSharedPreferences("ds", Context.MODE_PRIVATE);
+     }
+
++    public static synchronized void registerIp(String ip) {
++        if (ip != null) activeIps.add(ip);
++    }
++
+     public synchronized void saveDevice(Device d) {
+         SharedPreferences.Editor e = p.edit();
+         String m = d.getMacAddress();
+@@ -21,6 +29,7 @@ public class HotspotRepository {
+         e.putLong(m + "u", d.getUsedData());
+         e.putInt(m + "s", d.getSpeedLimit());
+         e.putBoolean(m + "b", d.isBlocked());
++        e.putString(m + "ip", d.getIpAddress());
+         e.apply();
+     }
+
+@@ -35,6 +44,8 @@ public class HotspotRepository {
+     public List<Device> getConnectedDevices() {
+         List<Device> list = new ArrayList<Device>();
+         BufferedReader br = null;
++        Set<String> foundIps = new HashSet<String>();
++
+         try {
+             br = new BufferedReader(new FileReader("/proc/net/arp"));
+             String line;
+@@ -44,6 +55,7 @@ public class HotspotRepository {
+                     Device d = new Device(s[0], s[3], "Device (" + s[0] + ")");
+                     load(d);
+                     list.add(d);
++                    foundIps.add(s[0]);
+                 }
+             }
+         } catch (IOException e) {
+@@ -55,6 +67,19 @@ public class HotspotRepository {
+                 } catch (IOException ignored) {}
+             }
+         }
++
++        // Fallback for Android 10+ where ARP is empty
++        synchronized (activeIps) {
++            for (String ip : activeIps) {
++                if (!foundIps.contains(ip)) {
++                    // Use IP as MAC for storage if MAC is unknown
++                    Device d = new Device(ip, ip.replace(".", "_"), "Device (" + ip + ")");
++                    load(d);
++                    list.add(d);
++                }
++            }
++        }
++
+         return list;
+     }
+ }
+diff --git a/android/app/src/main/java/com/example/wifimanager/utils/HandlerThread.java b/android/app/src/main/java/com/example/wifimanager/utils/HandlerThread.java
+index bf6b5bf..58ca9a6 100755
+--- a/android/app/src/main/java/com/example/wifimanager/utils/HandlerThread.java
++++ b/android/app/src/main/java/com/example/wifimanager/utils/HandlerThread.java
+@@ -1,4 +1,5 @@
+ package com.example.wifimanager.utils;
++import com.example.wifimanager.repository.HotspotRepository;
+ import java.net.Socket;
+ import java.io.InputStream;
+ import java.io.OutputStream;
+@@ -14,6 +15,10 @@ public class HandlerThread implements Runnable {
+     @Override public void run() {
+         if (clientSocket == null || clientSocket.getInetAddress() == null) return;
+         String ip = clientSocket.getInetAddress().getHostAddress();
++
++        // Register IP to show in device list
++        HotspotRepository.registerIp(ip);
++
+         if (pm.isIpBlocked(ip)) {
+             try {
+                 clientSocket.close();
+@@ -52,6 +57,7 @@ public class HandlerThread implements Runnable {
+                 port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 443;
+
+                 remoteSocket = new Socket(host, port);
++                remoteSocket.setSoTimeout(30000); // 30s timeout
+                 out.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes());
+                 out.flush();
+             } else {
+@@ -67,6 +73,7 @@ public class HandlerThread implements Runnable {
+                     port = Integer.parseInt(hp[1]);
+                 }
+                 remoteSocket = new Socket(host, port);
++                remoteSocket.setSoTimeout(30000);
+                 remoteSocket.getOutputStream().write(buffer, 0, n);
+             }
+
+diff --git a/android/app/src/main/java/com/example/wifimanager/utils/PThread.java b/android/app/src/main/java/com/example/wifimanager/utils/PThread.java
+index 06663da..6b71d0d 100755
+--- a/android/app/src/main/java/com/example/wifimanager/utils/PThread.java
++++ b/android/app/src/main/java/com/example/wifimanager/utils/PThread.java
+@@ -20,18 +20,22 @@ public class PThread implements Runnable {
+         this.s2 = s2;
+     }
+     @Override public void run() {
+-        byte[] buffer = new byte[4096];
++        byte[] buffer = new byte[8192]; // Increased buffer size
+         try {
+             while (proxyManager.isRunning()) {
+                 int n = inputStream.read(buffer);
+-                if (n == -1 || proxyManager.isIpBlocked(ip)) {
++                if (n == -1) break;
++
++                if (proxyManager.isIpBlocked(ip)) {
+                     break;
+                 }
+
+                 int speed = proxyManager.getSpeedLimit(ip);
+                 if (speed > 0) {
+                     try {
+-                        Thread.sleep((n * 8L) / speed);
++                        // Better speed calculation: (bytes * 8 bits / speed_in_kbps)
++                        long waitTime = (n * 8L) / speed;
++                        if (waitTime > 0) Thread.sleep(waitTime);
+                     } catch (InterruptedException e) {
+                         Thread.currentThread().interrupt();
+                         break;
+@@ -44,8 +48,12 @@ public class PThread implements Runnable {
+         } catch (IOException e) {
+             // Connection closed or error in piping
+         } finally {
+-            try { if (s1 != null) s1.close(); } catch (IOException ignored) {}
+-            try { if (s2 != null) s2.close(); } catch (IOException ignored) {}
++            closeAll();
+         }
+     }
++
++    private void closeAll() {
++        try { if (s1 != null && !s1.isClosed()) s1.close(); } catch (IOException ignored) {}
++        try { if (s2 != null && !s2.isClosed()) s2.close(); } catch (IOException ignored) {}
++    }
+ }
+diff --git a/android/app/src/main/java/com/example/wifimanager/utils/ProxyManager.java b/android/app/src/main/java/com/example/wifimanager/utils/ProxyManager.java
+index 9cdad9d..4a00726 100755
+--- a/android/app/src/main/java/com/example/wifimanager/utils/ProxyManager.java
++++ b/android/app/src/main/java/com/example/wifimanager/utils/ProxyManager.java
+@@ -19,6 +19,7 @@ public class ProxyManager {
+     private final Map<String, Integer> speedMap = new ConcurrentHashMap<String, Integer>();
+     private volatile long lastUpdateTimestamp = 0;
+     private ExecutorService threadPool;
++    private String hostIp = "192.168.43.1";
+
+     public ProxyManager(Context c) { this.repo = new HotspotRepository(c); }
+
+@@ -52,6 +53,9 @@ public class ProxyManager {
+
+     public ServerSocket getServerSocket() { return serverSocket; }
+
++    public void setHostIp(String ip) { this.hostIp = ip; }
++    public String getHostIp() { return hostIp; }
++
+     public void submitTask(Runnable task) {
+         ExecutorService pool = threadPool;
+         if (pool != null && !pool.isShutdown()) {
+diff --git a/android/app/src/main/java/com/example/wifimanager/utils/ProxyThread.java b/android/app/src/main/java/com/example/wifimanager/utils/ProxyThread.java
+index bf94370..8b6a770 100755
+--- a/android/app/src/main/java/com/example/wifimanager/utils/ProxyThread.java
++++ b/android/app/src/main/java/com/example/wifimanager/utils/ProxyThread.java
+@@ -1,21 +1,53 @@
+ package com.example.wifimanager.utils;
+ import java.net.InetAddress;
++import java.net.NetworkInterface;
+ import java.net.ServerSocket;
+ import java.net.Socket;
+ import java.io.IOException;
++import java.util.Collections;
++import java.util.List;
+
+ public class ProxyThread extends Thread {
+     private final ProxyManager pm;
+     public ProxyThread(ProxyManager pm) { this.pm = pm; }
++
++    private InetAddress getHotspotAddress() {
++        try {
++            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
++            for (NetworkInterface intf : interfaces) {
++                // Common names for hotspot interfaces: wlan0, ap0, softap0, p2p-wlan0-0
++                if (intf.getName().contains("wlan") || intf.getName().contains("ap")) {
++                    List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
++                    for (InetAddress addr : addrs) {
++                        if (!addr.isLoopbackAddress() && addr.getAddress().length == 4) {
++                            // On many Androids, the hotspot IP ends with .1
++                            String sAddr = addr.getHostAddress();
++                            if (sAddr.endsWith(".1")) {
++                                return addr;
++                            }
++                        }
++                    }
++                }
++            }
++        } catch (Exception ignored) {}
++        try {
++            return InetAddress.getByAddress(new byte[]{(byte)192, (byte)168, 43, 1});
++        } catch (Exception e) {
++            return null;
++        }
++    }
++
+     @Override public void run() {
+         try {
+-            // Bind to the hotspot gateway IP (192.168.43.1) to ensure proxy connectivity only on the hotspot interface
+-            byte[] ipAddr = new byte[]{(byte)192, (byte)168, 43, 1};
+-            ServerSocket ss = new ServerSocket(8080, 50, InetAddress.getByAddress(ipAddr));
+-            pm.setServerSocket(ss);
+-            while (pm.isRunning()) {
+-                final Socket socket = ss.accept();
+-                pm.submitTask(new HandlerThread(pm, socket));
++            InetAddress addr = getHotspotAddress();
++            if (addr != null) {
++                pm.setHostIp(addr.getHostAddress());
++                ServerSocket ss = new ServerSocket(8080, 50, addr);
++                pm.setServerSocket(ss);
++                while (pm.isRunning()) {
++                    final Socket socket = ss.accept();
++                    pm.submitTask(new HandlerThread(pm, socket));
++                }
+             }
+         } catch (IOException e) {
+             // Socket likely closed
+diff --git a/android/app/src/main/res/layout/activity_main.xml b/android/app/src/main/res/layout/activity_main.xml
+index 9a45a38..b37a4c6 100644
+--- a/android/app/src/main/res/layout/activity_main.xml
++++ b/android/app/src/main/res/layout/activity_main.xml
+@@ -173,6 +173,7 @@
+                         <TextView
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
++                            android:id="@+id/proxy_instruction"
+                             android:text="@string/proxy_instruction"
+                             android:textSize="12sp"
+                             android:textColor="#757575"
+diff --git a/android/app/src/main/res/values-ar/strings.xml b/android/app/src/main/res/values-ar/strings.xml
+index 26a9c0e..6daab1c 100644
+--- a/android/app/src/main/res/values-ar/strings.xml
++++ b/android/app/src/main/res/values-ar/strings.xml
+@@ -18,7 +18,7 @@
+     <string name="hotspot_root_instruction">تم تفعيل البث باستخدام صلاحيات الروت</string>
+     <string name="local_only_mode">إعدادات التحكم المتقدم</string>
+     <string name="proxy_info">للتحكم في الأجهزة (بدون روت):</string>
+-    <string name="proxy_host">المضيف: 192.168.43.1</string>
++    <string name="proxy_host">المضيف: %1$s</string>
+     <string name="proxy_port">المنفذ: 8080</string>
+-    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على 192.168.43.1:8080 للوصول للإنترنت وتطبيق القيود.</string>
++    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على %1$s:8080 للوصول للإنترنت وتطبيق القيود.</string>
+ </resources>
+diff --git a/android/app/src/main/res/values/strings.xml b/android/app/src/main/res/values/strings.xml
+index cf92bb1..5f0affe 100644
+--- a/android/app/src/main/res/values/strings.xml
++++ b/android/app/src/main/res/values/strings.xml
+@@ -8,9 +8,9 @@
+     <string name="disable_hotspot">Disable Hotspot</string>
+     <string name="local_only_mode">Proxy Mode (No Root)</string>
+     <string name="proxy_info">Proxy Settings</string>
+-    <string name="proxy_host">Host: 192.168.43.1</string>
++    <string name="proxy_host">Host: %1$s</string>
+     <string name="proxy_port">Port: 8080</string>
+-    <string name="proxy_instruction">Connected devices must manually set Proxy to 192.168.43.1:8080 to access the internet and apply limits.</string>
++    <string name="proxy_instruction">Connected devices must manually set Proxy to %1$s:8080 to access the internet and apply limits.</string>
+     <string name="connected_devices">Connected Devices</string>
+     <string name="password_error">Password must be at least 8 characters</string>
+     <string name="limit_data">Limit Data</string>

@@ -20,18 +20,22 @@ public class PThread implements Runnable {
         this.s2 = s2;
     }
     @Override public void run() {
-        byte[] buffer = new byte[4096];
+        byte[] buffer = new byte[8192]; // Increased buffer size
         try {
             while (proxyManager.isRunning()) {
                 int n = inputStream.read(buffer);
-                if (n == -1 || proxyManager.isIpBlocked(ip)) {
+                if (n == -1) break;
+
+                if (proxyManager.isIpBlocked(ip)) {
                     break;
                 }
 
                 int speed = proxyManager.getSpeedLimit(ip);
                 if (speed > 0) {
                     try {
-                        Thread.sleep((n * 8L) / speed);
+                        // Better speed calculation: (bytes * 8 bits / speed_in_kbps)
+                        long waitTime = (n * 8L) / speed;
+                        if (waitTime > 0) Thread.sleep(waitTime);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
@@ -44,8 +48,12 @@ public class PThread implements Runnable {
         } catch (IOException e) {
             // Connection closed or error in piping
         } finally {
-            try { if (s1 != null) s1.close(); } catch (IOException ignored) {}
-            try { if (s2 != null) s2.close(); } catch (IOException ignored) {}
+            closeAll();
         }
+    }
+
+    private void closeAll() {
+        try { if (s1 != null && !s1.isClosed()) s1.close(); } catch (IOException ignored) {}
+        try { if (s2 != null && !s2.isClosed()) s2.close(); } catch (IOException ignored) {}
     }
 }

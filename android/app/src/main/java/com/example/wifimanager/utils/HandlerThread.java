@@ -1,4 +1,5 @@
 package com.example.wifimanager.utils;
+import com.example.wifimanager.repository.HotspotRepository;
 import java.net.Socket;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -14,6 +15,10 @@ public class HandlerThread implements Runnable {
     @Override public void run() {
         if (clientSocket == null || clientSocket.getInetAddress() == null) return;
         String ip = clientSocket.getInetAddress().getHostAddress();
+
+        // Register IP to show in device list
+        HotspotRepository.registerIp(ip);
+
         if (pm.isIpBlocked(ip)) {
             try {
                 clientSocket.close();
@@ -52,6 +57,7 @@ public class HandlerThread implements Runnable {
                 port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 443;
 
                 remoteSocket = new Socket(host, port);
+                remoteSocket.setSoTimeout(30000); // 30s timeout
                 out.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes());
                 out.flush();
             } else {
@@ -67,6 +73,7 @@ public class HandlerThread implements Runnable {
                     port = Integer.parseInt(hp[1]);
                 }
                 remoteSocket = new Socket(host, port);
+                remoteSocket.setSoTimeout(30000);
                 remoteSocket.getOutputStream().write(buffer, 0, n);
             }
 

@@ -19,6 +19,7 @@ public class ProxyManager {
     private final Map<String, Integer> speedMap = new ConcurrentHashMap<String, Integer>();
     private volatile long lastUpdateTimestamp = 0;
     private ExecutorService threadPool;
+    private String hostIp = "192.168.43.1";
 
     public ProxyManager(Context c) { this.repo = new HotspotRepository(c); }
 
@@ -51,6 +52,9 @@ public class ProxyManager {
     public void setServerSocket(ServerSocket socket) { this.serverSocket = socket; }
 
     public ServerSocket getServerSocket() { return serverSocket; }
+
+    public void setHostIp(String ip) { this.hostIp = ip; }
+    public String getHostIp() { return hostIp; }
 
     public void submitTask(Runnable task) {
         ExecutorService pool = threadPool;

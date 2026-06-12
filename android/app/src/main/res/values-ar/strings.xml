@@ -18,7 +18,7 @@
     <string name="hotspot_root_instruction">تم تفعيل البث باستخدام صلاحيات الروت</string>
     <string name="local_only_mode">إعدادات التحكم المتقدم</string>
     <string name="proxy_info">للتحكم في الأجهزة (بدون روت):</string>
-    <string name="proxy_host">المضيف: 192.168.43.1</string>
+    <string name="proxy_host">المضيف: %1$s</string>
     <string name="proxy_port">المنفذ: 8080</string>
-    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على 192.168.43.1:8080 للوصول للإنترنت وتطبيق القيود.</string>
+    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على %1$s:8080 للوصول للإنترنت وتطبيق القيود.</string>
 </resources>

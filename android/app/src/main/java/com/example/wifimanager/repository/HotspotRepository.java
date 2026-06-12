@@ -6,12 +6,20 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class HotspotRepository {
     private final SharedPreferences p;
+    private static final Set<String> activeIps = new HashSet<String>();
+
     public HotspotRepository(Context c) {
         this.p = c.getApplicationContext().getSharedPreferences("ds", Context.MODE_PRIVATE);
+    }
+
+    public static synchronized void registerIp(String ip) {
+        if (ip != null) activeIps.add(ip);
     }
 
     public synchronized void saveDevice(Device d) {
@@ -21,6 +29,7 @@ public class HotspotRepository {
         e.putLong(m + "u", d.getUsedData());
         e.putInt(m + "s", d.getSpeedLimit());
         e.putBoolean(m + "b", d.isBlocked());
+        e.putString(m + "ip", d.getIpAddress());
         e.apply();
     }
 
@@ -35,6 +44,8 @@ public class HotspotRepository {
     public List<Device> getConnectedDevices() {
         List<Device> list = new ArrayList<Device>();
         BufferedReader br = null;
+        Set<String> foundIps = new HashSet<String>();
+
         try {
             br = new BufferedReader(new FileReader("/proc/net/arp"));
             String line;
@@ -44,6 +55,7 @@ public class HotspotRepository {
                     Device d = new Device(s[0], s[3], "Device (" + s[0] + ")");
                     load(d);
                     list.add(d);
+                    foundIps.add(s[0]);
                 }
             }
         } catch (IOException e) {
@@ -55,6 +67,19 @@ public class HotspotRepository {
                 } catch (IOException ignored) {}
             }
         }
+
+        // Fallback for Android 10+ where ARP is empty
+        synchronized (activeIps) {
+            for (String ip : activeIps) {
+                if (!foundIps.contains(ip)) {
+                    // Use IP as MAC for storage if MAC is unknown
+                    Device d = new Device(ip, ip.replace(".", "_"), "Device (" + ip + ")");
+                    load(d);
+                    list.add(d);
+                }
+            }
+        }
+
         return list;
     }
 }

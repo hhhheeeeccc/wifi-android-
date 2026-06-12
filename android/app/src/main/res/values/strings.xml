@@ -8,9 +8,9 @@
     <string name="disable_hotspot">Disable Hotspot</string>
     <string name="local_only_mode">Proxy Mode (No Root)</string>
     <string name="proxy_info">Proxy Settings</string>
-    <string name="proxy_host">Host: 192.168.43.1</string>
+    <string name="proxy_host">Host: %1$s</string>
     <string name="proxy_port">Port: 8080</string>
-    <string name="proxy_instruction">Connected devices must manually set Proxy to 192.168.43.1:8080 to access the internet and apply limits.</string>
+    <string name="proxy_instruction">Connected devices must manually set Proxy to %1$s:8080 to access the internet and apply limits.</string>
     <string name="connected_devices">Connected Devices</string>
     <string name="password_error">Password must be at least 8 characters</string>
     <string name="limit_data">Limit Data</string>
