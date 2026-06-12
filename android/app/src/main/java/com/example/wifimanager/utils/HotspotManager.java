@@ -71,7 +71,7 @@ public class HotspotManager {
             }
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
-            if (res instanceof Boolean && (Boolean) res) return 4;
+            if (Boolean.TRUE.equals(res)) return 4;
         } catch (Exception e) {
             // Fallback
         }

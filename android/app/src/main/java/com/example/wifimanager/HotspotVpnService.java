@@ -8,6 +8,8 @@ import android.util.Log;
 import java.io.IOException;
 
 public class HotspotVpnService extends VpnService {
+    private static final String VPN_ADDRESS = "10.0.0.1";
+    private static final String DNS_SERVER = "8.8.8.8";
     private static final String TAG = "HotspotVpnService";
     private ParcelFileDescriptor vpnInterface = null;
 
@@ -27,8 +29,8 @@ public class HotspotVpnService extends VpnService {
 
         Builder builder = new Builder();
         builder.setSession("HotspotVpn")
-               .addAddress("10.0.0.1", 24)
-               .addDnsServer("8.8.8.8")
+               .addAddress(VPN_ADDRESS, 24)
+               .addDnsServer(DNS_SERVER)
                .addRoute("0.0.0.0", 0);
 
         try {
