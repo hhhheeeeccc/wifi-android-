@@ -35,18 +35,38 @@ public class HandlerThread implements Runnable {
             }
 
             String header = new String(buffer, 0, n);
-            String host = pm.parseHost(header);
-            if (host == null) {
+            String firstLine = header.split("\r\n")[0];
+            String[] parts = firstLine.split(" ");
+            if (parts.length < 2) {
                 clientSocket.close();
                 return;
             }
 
-            remoteSocket = new Socket(host, header.contains("CONNECT") ? 443 : 80);
-            if (header.contains("CONNECT")) {
+            String method = parts[0];
+            String host;
+            int port;
+
+            if (method.equalsIgnoreCase("CONNECT")) {
+                String[] hostPort = parts[1].split(":");
+                host = hostPort[0];
+                port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 443;
+
+                remoteSocket = new Socket(host, port);
                 out.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes());
                 out.flush();
-            }
-            else {
+            } else {
+                host = pm.parseHost(header);
+                if (host == null) {
+                    clientSocket.close();
+                    return;
+                }
+                port = 80;
+                if (host.contains(":")) {
+                    String[] hp = host.split(":");
+                    host = hp[0];
+                    port = Integer.parseInt(hp[1]);
+                }
+                remoteSocket = new Socket(host, port);
                 remoteSocket.getOutputStream().write(buffer, 0, n);
             }
 
