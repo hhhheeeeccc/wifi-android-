@@ -40,10 +40,19 @@ public class HotspotRepository {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] s = line.split(" +");
-                if (s.length >= 4 && !s[0].equals("IP") && !s[3].equals("00:00:00:00:00:00")) {
-                    Device d = new Device(s[0], s[3], "Device (" + s[0] + ")");
-                    load(d);
-                    list.add(d);
+                // /proc/net/arp: IP, HW Type, Flags, MAC, Mask, Interface
+                if (s.length >= 6) {
+                    String ip = s[0];
+                    String flags = s[2];
+                    String mac = s[3];
+                    String iface = s[5];
+
+                    if (!ip.equals("IP") && !flags.equals("0x0") && !mac.equals("00:00:00:00:00:00")
+                        && (iface.contains("wlan") || iface.contains("ap"))) {
+                        Device d = new Device(ip, mac, "Device (" + ip + ")");
+                        load(d);
+                        list.add(d);
+                    }
                 }
             }
         } catch (IOException e) {

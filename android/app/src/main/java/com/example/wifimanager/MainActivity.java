@@ -22,6 +22,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
+import android.content.DialogInterface;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -36,9 +38,10 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener, DialogInterface.OnClickListener {
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 123;
+    private static final int VPN_REQUEST_CODE = 456;
     private HotspotManager hotspotManager;
     private HotspotRepository hotspotRepo;
     private DeviceAdapter deviceAdapter;
@@ -87,8 +90,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= 23) {
+            ArrayList<String> permissions = new ArrayList<>();
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+            if (Build.VERSION.SDK_INT >= 33) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) != PackageManager.PERMISSION_GRANTED) {
+                    permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES);
+                }
+            }
+            if (!permissions.isEmpty()) {
+                ActivityCompat.requestPermissions(this, permissions.toArray(new String[0]), PERMISSION_REQUEST_CODE);
             }
         }
     }
@@ -137,6 +152,40 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         if (singleThreadPool != null && !singleThreadPool.isShutdown()) {
             singleThreadPool.execute(new ToggleHotspotRunnable(hotspotManager, true, ssid, pass, mainHandler, this));
+        }
+    }
+
+        public void showManualHotspotDialog() {
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.manual_hotspot_title)
+            .setMessage(R.string.manual_hotspot_message)
+            .setPositiveButton(R.string.open_settings, this)
+            .setNegativeButton(R.string.cancel, null)
+            .show();
+    }
+
+    @Override
+    public void onClick(DialogInterface dialog, int which) {
+        if (which == DialogInterface.BUTTON_POSITIVE) {
+            openSystemTethering();
+            startVpnFlow();
+        }
+    }
+
+    private void startVpnFlow() {
+        Intent intent = android.net.VpnService.prepare(this);
+        if (intent != null) {
+            startActivityForResult(intent, VPN_REQUEST_CODE);
+        } else {
+            startService(new Intent(this, HotspotVpnService.class));
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == VPN_REQUEST_CODE && resultCode == RESULT_OK) {
+            startService(new Intent(this, HotspotVpnService.class));
         }
     }
 

@@ -58,12 +58,11 @@ public class HotspotManager {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= 26) {
-            return 2;
+        if (Build.VERSION.SDK_INT >= 29) {
+            return 5;
         }
 
         try {
-            if (en) wm.setWifiEnabled(false);
             WifiConfiguration conf = new WifiConfiguration();
             conf.SSID = s;
             if (p != null && p.length() >= 8) {
@@ -72,10 +71,15 @@ public class HotspotManager {
             }
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
-            return (res instanceof Boolean && (Boolean) res) ? 4 : 0;
+            if (res instanceof Boolean && (Boolean) res) return 4;
         } catch (Exception e) {
-            return 0;
+            // Fallback
         }
+
+        if (Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT < 29) {
+            return 2;
+        }
+        return 0;
     }
 
     @SuppressLint("MissingPermission")

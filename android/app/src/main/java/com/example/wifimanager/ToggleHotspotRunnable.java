@@ -40,6 +40,8 @@ public class ToggleHotspotRunnable implements Runnable {
                     activity.updateUI();
                 } else if (result == 2) {
                     activity.startLocalHotspotFlow();
+                } else if (result == 5) {
+                    activity.showManualHotspotDialog();
                 } else {
                     Toast.makeText(activity, activity.getString(R.string.hotspot_manual_instruction), Toast.LENGTH_SHORT).show();
                     activity.openSystemTethering();

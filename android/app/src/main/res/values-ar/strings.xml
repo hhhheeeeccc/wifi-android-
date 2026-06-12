@@ -21,4 +21,8 @@
     <string name="proxy_host">المضيف: 192.168.43.1</string>
     <string name="proxy_port">المنفذ: 8080</string>
     <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على 192.168.43.1:8080 للوصول للإنترنت وتطبيق القيود.</string>
+    <string name="manual_hotspot_title">يتطلب تفعيل البث يدوياً</string>
+    <string name="manual_hotspot_message">في أندرويد 10 وما فوق، لا يمكن للتطبيقات مشاركة الإنترنت برمجياً. يرجى فتح إعدادات النظام لتفعيل نقطة الاتصال مع مشاركة الإنترنت.</string>
+    <string name="open_settings">افتح الإعدادات</string>
+    <string name="cancel">إلغاء</string>
 </resources>
