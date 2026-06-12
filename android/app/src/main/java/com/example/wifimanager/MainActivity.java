@@ -3,6 +3,8 @@ package com.example.wifimanager;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,6 +13,7 @@ import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -21,6 +24,10 @@ import androidx.core.content.ContextCompat;
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.common.BitMatrix;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private EditText passInput;
     private View proxyInfoLay;
     private ListView devicesListView;
+    private ImageView qrCodeImg;
 
     public boolean isScanActive() { return scanActive; }
 
@@ -54,6 +62,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         proxyInfoLay = findViewById(R.id.proxyLayout);
         proxyConfigBtn = (Button) findViewById(R.id.proxyBtn);
         devicesListView = (ListView) findViewById(R.id.devicesRecyclerView);
+        qrCodeImg = (ImageView) findViewById(R.id.qrCodeImage);
 
         hotspotManager = new HotspotManager(this);
         hotspotRepo = new HotspotRepository(this);
@@ -137,10 +146,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ssidInput.setText(ssid);
         passInput.setText(password);
         proxyInfoLay.setVisibility(View.VISIBLE);
+        generateQRCode(ssid, password);
         updateUI();
     }
 
     @Override public void onStopped() {
+        qrCodeImg.setVisibility(View.GONE);
         updateUI();
     }
 
@@ -149,14 +160,36 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         openSystemTethering();
     }
 
+    private void generateQRCode(String ssid, String password) {
+        String content = "WIFI:T:WPA;S:" + ssid + ";P:" + password + ";;";
+        MultiFormatWriter writer = new MultiFormatWriter();
+        try {
+            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
+            BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
+            Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
+            qrCodeImg.setImageBitmap(bitmap);
+            qrCodeImg.setVisibility(View.VISIBLE);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public void updateUI() {
         if (isFinishing()) return;
         boolean active = hotspotManager.isHotspotEnabled();
         statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
         toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
-        if (active && !scanActive) {
-            scanActive = true;
-            mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
+        if (active) {
+            if (!scanActive) {
+                scanActive = true;
+                mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
+            }
+            // Also ensure QR code is generated if SSID/pass are available
+            String s = ssidInput.getText().toString();
+            String p = passInput.getText().toString();
+            if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
+                generateQRCode(s, p);
+            }
         } else if (!active) {
             scanActive = false;
         }
