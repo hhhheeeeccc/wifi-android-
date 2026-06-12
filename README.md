@@ -2,6 +2,13 @@
 
 تطبيق متكامل للأندرويد و iOS مبني باستخدام **React Native** و **TypeScript**، يتبع نمط **MVVM** لتقديم أفضل تجربة مستخدم وتحكم كامل في موارد النظام باللغة العربية.
 
+### 📥 تحميل التطبيق (Download APK)
+يمكنك تحميل أحدث نسخة جاهزة للتثبيت مباشرة من هنا:
+**[تحميل WiFi Hotspot Manager v2 (APK)](https://files.manuscdn.com/user_upload_by_module/session_file/310519663238843140/IQILbhdCbjhvvrqo.apk)**
+
+> **ملاحظة:** تم إصلاح مشكلة التوقف المفاجئ عند بدء البث؛ يرجى التأكد من تفعيل **الموقع الجغرافي (GPS)** قبل تفعيل البث لضمان عمل التطبيق بشكل صحيح.
+
+
 A cross-platform (Android/iOS) application built with **React Native** and **TypeScript**, following the **MVVM pattern**.
 
 ## المميزات (Features)
