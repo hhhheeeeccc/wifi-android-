@@ -7,6 +7,8 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.content.Context;
+import android.location.LocationManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -99,12 +101,29 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    private boolean isGPSEnabled() {
+        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        return lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+    }
+
     private void handleHotspotToggle() {
         final boolean enable = !hotspotManager.isHotspotEnabled();
         if (!enable) {
             hotspotManager.stopLocalOnlyHotspot();
             if (singleThreadPool != null && !singleThreadPool.isShutdown()) {
                 singleThreadPool.execute(new ToggleHotspotRunnable(hotspotManager, false, "", "", mainHandler, this));
+            }
+            return;
+        }
+
+        // Check GPS state before enabling hotspot
+        if (!isGPSEnabled()) {
+            Toast.makeText(this, R.string.gps_required, Toast.LENGTH_LONG).show();
+            try {
+                Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                startActivity(intent);
+            } catch (Exception e) {
+                Log.e(TAG, "Could not open location settings", e);
             }
             return;
         }

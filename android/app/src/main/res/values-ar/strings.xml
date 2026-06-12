@@ -12,6 +12,10 @@
     <string name="ssid_hint">اسم الشبكة</string>
     <string name="password_hint">كلمة المرور</string>
     <string name="password_error">كلمة المرور قصيرة جداً</string>
+    <string name="gps_required">يجب تفعيل الموقع الجغرافي (GPS) لتشغيل البث</string>
+    <string name="starting_local_hotspot">جاري بدء البث المحلي...</string>
+    <string name="hotspot_manual_instruction">يرجى تفعيل نقطة الاتصال يدوياً من الإعدادات</string>
+    <string name="hotspot_root_instruction">تم تفعيل البث باستخدام صلاحيات الروت</string>
     <string name="local_only_mode">إعدادات التحكم المتقدم</string>
     <string name="proxy_info">للتحكم في الأجهزة (بدون روت):</string>
     <string name="proxy_host">المضيف: 192.168.43.1</string>
