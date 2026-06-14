@@ -42,7 +42,7 @@ public class ProxyThread extends Thread {
             InetAddress addr = getHotspotAddress();
             if (addr != null) {
                 pm.setHostIp(addr.getHostAddress());
-                ServerSocket ss = new ServerSocket(8080, 50, addr);
+                ServerSocket ss = new ServerSocket(8282, 50, addr);
                 pm.setServerSocket(ss);
                 while (pm.isRunning()) {
                     final Socket socket = ss.accept();

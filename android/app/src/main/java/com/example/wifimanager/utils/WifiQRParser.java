@@ -5,7 +5,7 @@ public class WifiQRParser {
         public String ssid = "";
         public String password = "";
         public String proxyHost = "";
-        public int proxyPort = 8080;
+        public int proxyPort = 8282;
     }
 
     public static WifiData parse(String data) {
@@ -20,7 +20,7 @@ public class WifiQRParser {
                 try {
                     wifi.proxyPort = Integer.parseInt(part.substring(3));
                 } catch (NumberFormatException e) {
-                    wifi.proxyPort = 8080;
+                    wifi.proxyPort = 8282;
                 }
             }
         }

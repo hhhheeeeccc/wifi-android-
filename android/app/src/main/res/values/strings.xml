@@ -18,8 +18,8 @@
     <string name="local_only_mode">Proxy Mode (No Root)</string>
     <string name="proxy_info">Proxy Settings</string>
     <string name="proxy_host">Host: %1$s</string>
-    <string name="proxy_port">Port: 8080</string>
-    <string name="proxy_instruction">Connected devices must manually set Proxy to %1$s:8080 to access the internet and apply limits.</string>
+    <string name="proxy_port">Port: 8282</string>
+    <string name="proxy_instruction">Connected devices must manually set Proxy to %1$s:8282 to access the internet and apply limits.</string>
     <string name="scan_to_connect">Scan to Connect (Auto Proxy)</string>
     <string name="connecting_wifi">Connecting to WiFi...</string>
     <string name="connection_failed">Connection failed</string>

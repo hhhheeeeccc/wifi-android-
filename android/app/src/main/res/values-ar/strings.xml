@@ -18,8 +18,8 @@
     <string name="local_only_mode">إعدادات التحكم المتقدم</string>
     <string name="proxy_info">للتحكم في الأجهزة (بدون روت):</string>
     <string name="proxy_host">المضيف: %1$s</string>
-    <string name="proxy_port">المنفذ: 8080</string>
-    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على %1$s:8080 للوصول للإنترنت وتطبيق القيود.</string>
+    <string name="proxy_port">المنفذ: 8282</string>
+    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على %1$s:8282 للوصول للإنترنت وتطبيق القيود.</string>
     <string name="scan_to_connect">امسح للاتصال (بروكسي تلقائي)</string>
     <string name="connecting_wifi">جاري الاتصال بالشبكة...</string>
     <string name="connection_failed">فشل الاتصال</string>
