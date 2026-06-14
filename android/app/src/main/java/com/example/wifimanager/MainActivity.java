@@ -10,6 +10,7 @@ import android.graphics.Bitmap;
 import android.location.LocationManager;
 import android.net.ProxyInfo;
 import android.net.VpnService;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.os.Build;
@@ -103,16 +104,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         qrCodeImg = findViewById(R.id.qrCodeImage);
         deviceListView = findViewById(R.id.devicesRecyclerView);
 
-        deviceListView.setAdapter(deviceAdapter);
+        if (deviceListView != null) deviceListView.setAdapter(deviceAdapter);
 
-        toggleBtn.setOnClickListener(this);
-        scanBtn.setOnClickListener(this);
-        vpnBtn.setOnClickListener(this);
-        proxyToggleBtn.setOnClickListener(this);
+        if (toggleBtn != null) toggleBtn.setOnClickListener(this);
+        if (scanBtn != null) scanBtn.setOnClickListener(this);
+        if (vpnBtn != null) vpnBtn.setOnClickListener(this);
+        if (proxyToggleBtn != null) proxyToggleBtn.setOnClickListener(this);
 
-        Intent intent = new Intent(this, UsageMonitorService.class);
-        startService(intent);
-        bindService(intent, this, Context.BIND_AUTO_CREATE);
+        try {
+            Intent intent = new Intent(this, UsageMonitorService.class);
+            startService(intent);
+            bindService(intent, this, Context.BIND_AUTO_CREATE);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to bind usage service", e);
+        }
 
         checkAndRequestPermissions();
     }
@@ -128,14 +133,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override public void onClick(View v) {
-        if (v.getId() == R.id.toggleHotspot) {
+        int id = v.getId();
+        if (id == R.id.toggleHotspot) {
             handleHotspotToggle();
-        } else if (v.getId() == R.id.scanConnectBtn) {
+        } else if (id == R.id.scanConnectBtn) {
             new IntentIntegrator(this).initiateScan();
-        } else if (v.getId() == R.id.toggleVpnBtn) {
+        } else if (id == R.id.toggleVpnBtn) {
             handleVpnToggle();
-        } else if (v.getId() == R.id.proxyBtn) {
-            proxyInfoLay.setVisibility(proxyInfoLay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+        } else if (id == R.id.proxyBtn) {
+            if (proxyInfoLay != null) {
+                proxyInfoLay.setVisibility(proxyInfoLay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            }
         }
     }
 
@@ -182,6 +190,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return;
         }
 
+        if (ssidInput == null || passInput == null) return;
         final String ssid = ssidInput.getText().toString();
         final String pass = passInput.getText().toString();
         if (pass.length() < 8) {
@@ -219,9 +228,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override public void onStarted(String ssid, String password) {
-        ssidInput.setText(ssid);
-        passInput.setText(password);
-        proxyInfoLay.setVisibility(View.VISIBLE);
+        if (ssidInput != null) ssidInput.setText(ssid);
+        if (passInput != null) passInput.setText(password);
+        if (proxyInfoLay != null) proxyInfoLay.setVisibility(View.VISIBLE);
 
         if (isBound && usageService != null && usageService.getProxyManager() != null) {
             usageService.getProxyManager().refreshHostIp();
@@ -232,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override public void onStopped() {
-        qrCodeImg.setVisibility(View.GONE);
+        if (qrCodeImg != null) qrCodeImg.setVisibility(View.GONE);
         updateUI();
     }
 
@@ -246,15 +255,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (isBound && usageService != null && usageService.getProxyManager() != null) {
             host = usageService.getProxyManager().getHostIp();
         }
-        // Custom format: PH = Proxy Host, PP = Proxy Port
         String content = "WIFI:T:WPA;S:" + ssid + ";P:" + password + ";PH:" + host + ";PP:8080;;";
         MultiFormatWriter writer = new MultiFormatWriter();
         try {
             BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
-            qrCodeImg.setImageBitmap(bitmap);
-            qrCodeImg.setVisibility(View.VISIBLE);
+            if (qrCodeImg != null) {
+                qrCodeImg.setImageBitmap(bitmap);
+                qrCodeImg.setVisibility(View.VISIBLE);
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error generating QR code", e);
         }
@@ -263,8 +273,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void updateUI() {
         if (isFinishing()) return;
         boolean active = hotspotManager.isHotspotEnabled();
-        statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
-        toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
+        if (statusLabel != null) statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
+        if (toggleBtn != null) toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
 
         if (isBound && usageService != null) {
             ProxyManager pm = usageService.getProxyManager();
@@ -273,8 +283,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     pm.startProxy();
                 }
                 String host = pm.getHostIp();
-                proxyHostTxt.setText(getString(R.string.proxy_host, host));
-                proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
+                if (proxyHostTxt != null) proxyHostTxt.setText(getString(R.string.proxy_host, host));
+                if (proxyInstructionTxt != null) proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
             }
         }
 
@@ -283,10 +293,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 scanActive = true;
                 mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
             }
-            String s = ssidInput.getText().toString();
-            String p = passInput.getText().toString();
-            if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
-                generateQRCode(s, p);
+            if (ssidInput != null && passInput != null && qrCodeImg != null) {
+                String s = ssidInput.getText().toString();
+                String p = passInput.getText().toString();
+                if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
+                    generateQRCode(s, p);
+                }
             }
         } else {
             scanActive = false;
@@ -355,7 +367,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             int status = wm.addNetworkSuggestions(Collections.singletonList(suggestion));
             if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
                 Toast.makeText(this, R.string.network_added_success, Toast.LENGTH_SHORT).show();
-                // If it's a proxy hotspot, suggest VPN
                 if (!ph.isEmpty()) {
                     handleVpnToggle();
                 }

@@ -20,8 +20,14 @@ public class HotspotVpnService extends VpnService {
             return START_NOT_STICKY;
         }
 
-        String host = intent != null ? intent.getStringExtra("proxy_host") : "192.168.49.1";
-        int port = intent != null ? intent.getIntExtra("proxy_port", 8080) : 8080;
+        String host = "192.168.49.1";
+        int port = 8080;
+
+        if (intent != null) {
+            host = intent.getStringExtra("proxy_host");
+            if (host == null || host.isEmpty()) host = "192.168.49.1";
+            port = intent.getIntExtra("proxy_port", 8080);
+        }
 
         startVpn(host, port);
         return START_STICKY;
