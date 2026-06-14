@@ -79,8 +79,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Global error handling to catch and show errors instead of crashing silently
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            Log.e(TAG, "Uncaught Exception", throwable);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                Toast.makeText(this, "حدث خطأ: " + throwable.getMessage(), Toast.LENGTH_LONG).show();
+            });
+        });
+
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        try {
+            setContentView(R.layout.activity_main);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setContentView", e);
+            Toast.makeText(this, "خطأ في تحميل الواجهة: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
 
         mainHandler = new Handler(Looper.getMainLooper());
         singleThreadPool = Executors.newSingleThreadExecutor();
@@ -90,6 +104,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         hotspotRepo = new HotspotRepository(this);
         deviceAdapter = new DeviceAdapter(this, new ArrayList<>());
 
+        try {
+            initViews();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in initViews", e);
+            Toast.makeText(this, "خطأ في تهيئة العناصر: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+
+        // Delay service startup to avoid competition with UI thread during start
+        mainHandler.postDelayed(this::setupService, 1000);
+
+        checkAndRequestPermissions();
+    }
+
+    private void initViews() {
         statusLabel = findViewById(R.id.statusLabel);
         ssidInput = findViewById(R.id.ssidInput);
         passInput = findViewById(R.id.passwordInput);
@@ -105,21 +133,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         deviceListView = findViewById(R.id.devicesRecyclerView);
 
         if (deviceListView != null) deviceListView.setAdapter(deviceAdapter);
-
         if (toggleBtn != null) toggleBtn.setOnClickListener(this);
         if (scanBtn != null) scanBtn.setOnClickListener(this);
         if (vpnBtn != null) vpnBtn.setOnClickListener(this);
         if (proxyToggleBtn != null) proxyToggleBtn.setOnClickListener(this);
+    }
 
+    private void setupService() {
         try {
             Intent intent = new Intent(this, UsageMonitorService.class);
-            startService(intent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
             bindService(intent, this, Context.BIND_AUTO_CREATE);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to bind usage service", e);
+            Log.e(TAG, "Failed to start service", e);
         }
-
-        checkAndRequestPermissions();
     }
 
     public boolean isScanActive() { return scanActive; }
@@ -137,7 +168,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (id == R.id.toggleHotspot) {
             handleHotspotToggle();
         } else if (id == R.id.scanConnectBtn) {
-            new IntentIntegrator(this).initiateScan();
+            try {
+                new IntentIntegrator(this).initiateScan();
+            } catch (Exception e) {
+                Toast.makeText(this, "خطأ في بدء الماسح", Toast.LENGTH_SHORT).show();
+            }
         } else if (id == R.id.toggleVpnBtn) {
             handleVpnToggle();
         } else if (id == R.id.proxyBtn) {
@@ -157,11 +192,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void startVpnService() {
-        Intent intent = new Intent(this, HotspotVpnService.class);
-        intent.putExtra("proxy_host", lastProxyHost.isEmpty() ? "192.168.49.1" : lastProxyHost);
-        intent.putExtra("proxy_port", lastProxyPort);
-        startService(intent);
-        Toast.makeText(this, R.string.vpn_started, Toast.LENGTH_SHORT).show();
+        try {
+            Intent intent = new Intent(this, HotspotVpnService.class);
+            intent.putExtra("proxy_host", lastProxyHost.isEmpty() ? "192.168.49.1" : lastProxyHost);
+            intent.putExtra("proxy_port", lastProxyPort);
+            startService(intent);
+            Toast.makeText(this, R.string.vpn_started, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Log.e(TAG, "VPN Start Error", e);
+        }
     }
 
     private boolean isGPSEnabled() {
@@ -313,7 +352,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             singleThreadPool = null;
         }
         if (isBound) {
-            unbindService(this);
+            try {
+                unbindService(this);
+            } catch (Exception ignored) {}
             isBound = false;
         }
         super.onDestroy();
@@ -324,12 +365,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (requestCode == VPN_REQUEST_CODE && resultCode == RESULT_OK) {
             startVpnService();
         } else {
-            IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-            if (result != null) {
-                if (result.getContents() != null) {
+            try {
+                IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+                if (result != null && result.getContents() != null) {
                     parseAndConnect(result.getContents());
+                } else {
+                    super.onActivityResult(requestCode, resultCode, data);
                 }
-            } else {
+            } catch (Exception e) {
                 super.onActivityResult(requestCode, resultCode, data);
             }
         }
@@ -387,10 +430,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
-        LocalBinder binder = (LocalBinder) service;
-        usageService = (UsageMonitorService) binder.getService();
-        isBound = true;
-        updateUI();
+        try {
+            LocalBinder binder = (LocalBinder) service;
+            usageService = (UsageMonitorService) binder.getService();
+            isBound = true;
+            updateUI();
+        } catch (Exception e) {
+            Log.e(TAG, "Service Connect Error", e);
+        }
     }
 
     @Override

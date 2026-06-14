@@ -7,13 +7,12 @@
     android:orientation="vertical"
     android:layoutDirection="rtl">
 
-    <com.google.android.material.appbar.MaterialToolbar
+    <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="#1A237E"
         app:title="@string/app_name"
-        app:titleCentered="true"
         app:titleTextColor="#FFFFFF" />
 
     <ScrollView
@@ -26,164 +25,134 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <com.google.android.material.card.MaterialCardView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
+                android:background="#1A237E"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:gravity="center"
                 android:layout_marginBottom="16dp">
 
-                <LinearLayout
+                <TextView
+                    android:id="@+id/statusLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/status_inactive"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#FFFFFF"
+                android:layout_marginBottom="16dp">
+
+                <EditText
+                    android:id="@+id/ssidInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="#1A237E"
+                    android:hint="@string/ssid_hint"
+                    android:text="MyWiFiHotspot"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/passwordInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/password_hint"
+                    android:inputType="textPassword"
+                    android:text="12345678"
+                    android:layout_marginBottom="16dp" />
+
+                <Button
+                    android:id="@+id/scanConnectBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="@string/scan_to_connect"
+                    android:backgroundTint="#007BFF"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/toggleVpnBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="@string/enable_vpn_tunnel"
+                    android:backgroundTint="#673AB7"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/toggleHotspot"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="@string/enable_hotspot"
+                    android:backgroundTint="#28A745"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/proxyBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/local_only_mode"
+                    style="?android:attr/borderlessButtonStyle" />
+
+                <LinearLayout
+                    android:id="@+id/proxyLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp"
-                    android:gravity="center">
+                    android:background="#F0F4FF"
+                    android:padding="12dp"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp">
 
                     <TextView
-                        android:id="@+id/statusLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/status_inactive"
-                        android:textColor="#FFFFFF"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:text="@string/proxy_info"
+                        android:textStyle="bold"
+                        android:textColor="#1565C0" />
 
-                    <View
-                        android:layout_width="40dp"
-                        android:layout_height="4dp"
-                        android:background="#4CAF50"
-                        android:layout_marginTop="8dp" />
+                    <TextView
+                        android:id="@+id/proxy_host_txt"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/proxy_host"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/proxy_port_txt"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/proxy_port" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/proxy_instruction"
+                        android:text="@string/proxy_instruction"
+                        android:textSize="11sp"
+                        android:textColor="#757575"
+                        android:layout_marginTop="4dp" />
+
+                    <ImageView
+                        android:id="@+id/qrCodeImage"
+                        android:layout_width="160dp"
+                        android:layout_height="160dp"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="12dp"
+                        android:background="@android:color/white"
+                        android:padding="4dp"
+                        android:visibility="gone" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                android:layout_marginBottom="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/ssid_hint"
-                        android:layout_marginBottom="8dp">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/ssidInput"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="MyWiFiHotspot" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/password_hint"
-                        app:passwordToggleEnabled="true"
-                        android:layout_marginBottom="16dp">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/passwordInput"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="textPassword"
-                            android:text="12345678" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/scanConnectBtn"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:text="@string/scan_to_connect"
-                        app:cornerRadius="8dp"
-                        android:backgroundTint="#007BFF"
-                        android:layout_marginBottom="8dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/toggleVpnBtn"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:text="@string/enable_vpn_tunnel"
-                        app:cornerRadius="8dp"
-                        android:backgroundTint="#673AB7"
-                        android:layout_marginBottom="8dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/toggleHotspot"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:text="@string/enable_hotspot"
-                        app:cornerRadius="8dp"
-                        android:backgroundTint="#28A745"
-                        android:layout_marginBottom="8dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/proxyBtn"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/local_only_mode" />
-
-                    <LinearLayout
-                        android:id="@+id/proxyLayout"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:background="#F0F4FF"
-                        android:padding="12dp"
-                        android:visibility="gone"
-                        android:layout_marginTop="8dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/proxy_info"
-                            android:textStyle="bold"
-                            android:textColor="#1565C0" />
-
-                        <TextView
-                            android:id="@+id/proxy_host_txt"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/proxy_host"
-                            android:layout_marginTop="4dp" />
-
-                        <TextView
-                            android:id="@+id/proxy_port_txt"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/proxy_port" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:id="@+id/proxy_instruction"
-                            android:text="@string/proxy_instruction"
-                            android:textSize="11sp"
-                            android:textColor="#757575"
-                            android:layout_marginTop="4dp" />
-
-                        <ImageView
-                            android:id="@+id/qrCodeImage"
-                            android:layout_width="160dp"
-                            android:layout_height="160dp"
-                            android:layout_gravity="center"
-                            android:layout_marginTop="12dp"
-                            android:background="@android:color/white"
-                            android:padding="4dp"
-                            android:visibility="gone" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -198,8 +167,7 @@
                 android:id="@+id/devicesRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="300dp"
-                android:divider="@null"
-                tools:listitem="@layout/device_item" />
+                android:divider="@null" />
 
         </LinearLayout>
     </ScrollView>
