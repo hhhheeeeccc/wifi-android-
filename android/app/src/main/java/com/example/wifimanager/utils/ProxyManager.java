@@ -8,22 +8,24 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ProxyManager {
+    public static final String IP_STANDARD_AP = "192.168.43.1";
+    public static final String IP_LOCAL_ONLY = "192.168.49.1";
+
     private final HotspotRepository repo;
     private ServerSocket serverSocket;
     private volatile boolean runStatus = false;
-    private final Map<String, Long> usageMap = new ConcurrentHashMap<String, Long>();
-    private final Map<String, Boolean> blockMap = new ConcurrentHashMap<String, Boolean>();
-    private final Map<String, Integer> speedMap = new ConcurrentHashMap<String, Integer>();
+    private final Map<String, Long> usageMap = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> blockMap = new ConcurrentHashMap<>();
+    private final Map<String, Integer> speedMap = new ConcurrentHashMap<>();
     private volatile long lastUpdateTimestamp = 0;
     private ExecutorService threadPool;
-    private String hostIp = "192.168.43.1";
+    private String hostIp = IP_STANDARD_AP;
 
     public ProxyManager(Context c) { this.repo = new HotspotRepository(c); }
 
@@ -68,26 +70,45 @@ public class ProxyManager {
     }
 
     public InetAddress getHotspotAddress() {
+        InetAddress best = null;
         try {
             List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
             for (NetworkInterface intf : interfaces) {
-                String name = intf.getName().toLowerCase();
-                // Common names for hotspot/wifi-direct interfaces: wlan, ap, softap, p2p
-                if (name.contains("wlan") || name.contains("ap") || name.contains("p2p")) {
-                    List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-                    for (InetAddress addr : addrs) {
-                        if (!addr.isLoopbackAddress() && addr.getAddress().length == 4) {
-                            String sAddr = addr.getHostAddress();
-                            // Hotspot IPs usually end in .1
-                            if (sAddr.endsWith(".1")) {
-                                return addr;
-                            }
-                        }
+                InetAddress found = findAddressInInterface(intf);
+                if (found != null) {
+                    String sAddr = found.getHostAddress();
+                    if (IP_LOCAL_ONLY.equals(sAddr) || IP_STANDARD_AP.equals(sAddr)) {
+                        return found;
                     }
+                    if (best == null) best = found;
                 }
             }
         } catch (Exception ignored) {}
+        return best;
+    }
+
+    private InetAddress findAddressInInterface(NetworkInterface intf) {
+        String name = intf.getName().toLowerCase();
+        if (!isHotspotInterface(name)) return null;
+
+        List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+        for (InetAddress addr : addrs) {
+            if (isIpv4Address(addr)) {
+                String sAddr = addr.getHostAddress();
+                if (sAddr.endsWith(".1")) {
+                    return addr;
+                }
+            }
+        }
         return null;
+    }
+
+    private boolean isHotspotInterface(String name) {
+        return name.contains("p2p") || name.contains("ap") || name.contains("wlan") || name.contains("softap");
+    }
+
+    private boolean isIpv4Address(InetAddress addr) {
+        return !addr.isLoopbackAddress() && addr.getAddress().length == 4;
     }
 
     public void submitTask(Runnable task) {

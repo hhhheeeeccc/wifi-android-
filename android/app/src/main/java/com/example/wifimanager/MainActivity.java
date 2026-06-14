@@ -216,7 +216,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void generateQRCode(String ssid, String password) {
-        String host = "192.168.43.1";
+        String host = ProxyManager.IP_STANDARD_AP;
         if (isBound && usageService != null && usageService.getProxyManager() != null) {
             host = usageService.getProxyManager().getHostIp();
         }

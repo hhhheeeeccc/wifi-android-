@@ -1,6 +1,7 @@
 package com.example.wifimanager.utils;
 import com.example.wifimanager.repository.HotspotRepository;
 import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.IOException;
@@ -8,10 +9,13 @@ import java.io.IOException;
 public class HandlerThread implements Runnable {
     private final ProxyManager pm;
     private final Socket clientSocket;
+    private static final int BUFFER_SIZE = 65536;
+
     public HandlerThread(ProxyManager pm, Socket s) {
         this.pm = pm;
         this.clientSocket = s;
     }
+
     @Override public void run() {
         if (clientSocket == null || clientSocket.getInetAddress() == null) return;
         String ip = clientSocket.getInetAddress().getHostAddress();
@@ -30,9 +34,14 @@ public class HandlerThread implements Runnable {
 
         Socket remoteSocket = null;
         try {
+            // Optimize client socket
+            clientSocket.setTcpNoDelay(true);
+            clientSocket.setSendBufferSize(BUFFER_SIZE);
+            clientSocket.setReceiveBufferSize(BUFFER_SIZE);
+
             InputStream in = clientSocket.getInputStream();
             OutputStream out = clientSocket.getOutputStream();
-            byte[] buffer = new byte[8192];
+            byte[] buffer = new byte[BUFFER_SIZE];
             int n = in.read(buffer);
             if (n <= 0) {
                 clientSocket.close();
@@ -40,7 +49,13 @@ public class HandlerThread implements Runnable {
             }
 
             String header = new String(buffer, 0, n);
-            String firstLine = header.split("\r\n")[0];
+            String[] headerLines = header.split("\r\n");
+            if (headerLines.length == 0) {
+                clientSocket.close();
+                return;
+            }
+
+            String firstLine = headerLines[0];
             String[] parts = firstLine.split(" ");
             if (parts.length < 2) {
                 clientSocket.close();
@@ -56,8 +71,10 @@ public class HandlerThread implements Runnable {
                 host = hostPort[0];
                 port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 443;
 
-                remoteSocket = new Socket(host, port);
-                remoteSocket.setSoTimeout(30000); // 30s timeout
+                remoteSocket = new Socket();
+                configureRemoteSocket(remoteSocket);
+                remoteSocket.connect(new InetSocketAddress(host, port), 10000);
+
                 out.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes());
                 out.flush();
             } else {
@@ -72,9 +89,11 @@ public class HandlerThread implements Runnable {
                     host = hp[0];
                     port = Integer.parseInt(hp[1]);
                 }
-                remoteSocket = new Socket(host, port);
-                remoteSocket.setSoTimeout(30000);
+                remoteSocket = new Socket();
+                configureRemoteSocket(remoteSocket);
+                remoteSocket.connect(new InetSocketAddress(host, port), 10000);
                 remoteSocket.getOutputStream().write(buffer, 0, n);
+                remoteSocket.getOutputStream().flush();
             }
 
             pm.submitTask(new PThread(ip, in, remoteSocket.getOutputStream(), pm, clientSocket, remoteSocket));
@@ -87,5 +106,12 @@ public class HandlerThread implements Runnable {
                 if (remoteSocket != null) remoteSocket.close();
             } catch (IOException ignored) {}
         }
+    }
+
+    private void configureRemoteSocket(Socket s) throws IOException {
+        s.setTcpNoDelay(true);
+        s.setSendBufferSize(BUFFER_SIZE);
+        s.setReceiveBufferSize(BUFFER_SIZE);
+        s.setSoTimeout(30000);
     }
 }

@@ -11,6 +11,8 @@ public class PThread implements Runnable {
     private final ProxyManager proxyManager;
     private final Socket s1;
     private final Socket s2;
+    private static final int BUFFER_SIZE = 65536;
+
     public PThread(String ip, InputStream in, OutputStream out, ProxyManager pm, Socket s1, Socket s2) {
         this.ip = ip;
         this.inputStream = in;
@@ -20,7 +22,7 @@ public class PThread implements Runnable {
         this.s2 = s2;
     }
     @Override public void run() {
-        byte[] buffer = new byte[8192]; // Increased buffer size
+        byte[] buffer = new byte[BUFFER_SIZE];
         try {
             while (proxyManager.isRunning()) {
                 int n = inputStream.read(buffer);
@@ -33,7 +35,6 @@ public class PThread implements Runnable {
                 int speed = proxyManager.getSpeedLimit(ip);
                 if (speed > 0) {
                     try {
-                        // Better speed calculation: (bytes * 8 bits / speed_in_kbps)
                         long waitTime = (n * 8L) / speed;
                         if (waitTime > 0) Thread.sleep(waitTime);
                     } catch (InterruptedException e) {
