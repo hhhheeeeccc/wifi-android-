@@ -42,6 +42,7 @@ public class HotspotManager {
     public int setHotspotEnabled(boolean en, String s, String p) {
         if (!en) {
             stopLocalOnlyHotspot();
+            toggleNat(false);
         }
 
         String su = getBin("su");
@@ -52,6 +53,7 @@ public class HotspotManager {
                 os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
                 os.flush();
                 os.close();
+                if (en) toggleNat(true);
                 return 1;
             } catch (Exception e) {
                 // Root method failed
@@ -72,7 +74,11 @@ public class HotspotManager {
             }
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
-            return (res instanceof Boolean && (Boolean) res) ? 4 : 0;
+            if (en && res instanceof Boolean && (Boolean) res) {
+                toggleNat(true);
+                return 4;
+            }
+            return 0;
         } catch (Exception e) {
             return 0;
         }
@@ -93,6 +99,7 @@ public class HotspotManager {
             hotspotReservation.close();
             hotspotReservation = null;
         }
+        toggleNat(false);
     }
 
     public boolean isHotspotEnabled() {
@@ -103,6 +110,31 @@ public class HotspotManager {
             return res instanceof Integer && (Integer) res >= 12;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    public void toggleNat(boolean en) {
+        String su = getBin("su");
+        String ipt = getBin("iptables");
+        if (su != null && ipt != null) {
+            try {
+                Process pr = new ProcessBuilder(su).start();
+                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
+                if (en) {
+                    os.writeBytes("echo 1 > /proc/sys/net/ipv4/ip_forward\n");
+                    // Try common interfaces for NAT
+                    os.writeBytes(ipt + " -t nat -A POSTROUTING -j MASQUERADE\n");
+                    os.writeBytes(ipt + " -A FORWARD -j ACCEPT\n");
+                } else {
+                    os.writeBytes(ipt + " -t nat -F\n");
+                    os.writeBytes(ipt + " -F\n");
+                }
+                os.writeBytes("exit\n");
+                os.flush();
+                os.close();
+            } catch (Exception e) {
+                // NAT toggle failed
+            }
         }
     }
 
@@ -158,6 +190,7 @@ class LocalHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
         if (listener != null) {
             WifiConfiguration config = reservation.getWifiConfiguration();
             listener.onStarted(config.SSID, config.preSharedKey);
+            manager.toggleNat(true);
         }
     }
 
@@ -165,6 +198,7 @@ class LocalHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
     public void onStopped() {
         manager.hotspotReservation = null;
         if (listener != null) listener.onStopped();
+        manager.toggleNat(false);
     }
 
     @Override

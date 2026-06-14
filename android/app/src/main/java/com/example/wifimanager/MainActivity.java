@@ -9,7 +9,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.location.LocationManager;
 import android.net.ProxyInfo;
-import android.net.wifi.WifiConfiguration;
+import android.net.VpnService;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.os.Build;
@@ -33,9 +33,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
+import com.example.wifimanager.utils.HotspotVpnService;
 import com.example.wifimanager.utils.ProxyManager;
 import com.example.wifimanager.utils.WifiQRParser;
 import com.google.zxing.BarcodeFormat;
@@ -54,56 +54,61 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener, ServiceConnection {
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 100;
+    private static final int VPN_REQUEST_CODE = 200;
 
-    private TextView statusLabel;
+    private TextView statusLabel, proxyHostTxt, proxyPortTxt, proxyInstructionTxt;
     private EditText ssidInput, passInput;
-    private Button toggleBtn, scanConnectBtn, proxyConfigBtn;
+    private Button toggleBtn, scanBtn, proxyToggleBtn, vpnBtn;
     private LinearLayout proxyInfoLay;
-    private ListView devicesListView;
     private ImageView qrCodeImg;
-    private TextView proxyHostTxt, proxyInstructionTxt;
+    private ListView deviceListView;
 
     private HotspotManager hotspotManager;
-    private WifiManager wm;
     private HotspotRepository hotspotRepo;
     private DeviceAdapter deviceAdapter;
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private UsageMonitorService usageService;
+    private boolean isBound = false;
+    private Handler mainHandler;
     private ExecutorService singleThreadPool;
     private boolean scanActive = false;
 
-    private UsageMonitorService usageService;
-    private boolean isBound = false;
-
-    public boolean isScanActive() { return scanActive; }
+    private String lastProxyHost = "";
+    private int lastProxyPort = 8080;
+    private WifiManager wm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        statusLabel = (TextView) findViewById(R.id.statusLabel);
-        ssidInput = (EditText) findViewById(R.id.ssidInput);
-        passInput = (EditText) findViewById(R.id.passwordInput);
-        toggleBtn = (Button) findViewById(R.id.toggleHotspot);
-        scanConnectBtn = (Button) findViewById(R.id.scanConnectBtn);
-        proxyConfigBtn = (Button) findViewById(R.id.proxyBtn);
-        proxyInfoLay = (LinearLayout) findViewById(R.id.proxyLayout);
-        devicesListView = (ListView) findViewById(R.id.devicesRecyclerView);
-        qrCodeImg = (ImageView) findViewById(R.id.qrCodeImage);
-        proxyHostTxt = (TextView) findViewById(R.id.proxy_host_txt);
-        proxyInstructionTxt = (TextView) findViewById(R.id.proxy_instruction);
+        mainHandler = new Handler(Looper.getMainLooper());
+        singleThreadPool = Executors.newSingleThreadExecutor();
 
-        hotspotManager = new HotspotManager(this);
         wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        hotspotManager = new HotspotManager(this);
         hotspotRepo = new HotspotRepository(this);
-        deviceAdapter = new DeviceAdapter(this, new ArrayList<Device>());
-        devicesListView.setAdapter(deviceAdapter);
+        deviceAdapter = new DeviceAdapter(this, new ArrayList<>());
+
+        statusLabel = findViewById(R.id.statusLabel);
+        ssidInput = findViewById(R.id.ssidInput);
+        passInput = findViewById(R.id.passwordInput);
+        toggleBtn = findViewById(R.id.toggleHotspot);
+        scanBtn = findViewById(R.id.scanConnectBtn);
+        vpnBtn = findViewById(R.id.toggleVpnBtn);
+        proxyToggleBtn = findViewById(R.id.proxyBtn);
+        proxyInfoLay = findViewById(R.id.proxyLayout);
+        proxyHostTxt = findViewById(R.id.proxy_host_txt);
+        proxyPortTxt = findViewById(R.id.proxy_port_txt);
+        proxyInstructionTxt = findViewById(R.id.proxy_instruction);
+        qrCodeImg = findViewById(R.id.qrCodeImage);
+        deviceListView = findViewById(R.id.devicesRecyclerView);
+
+        deviceListView.setAdapter(deviceAdapter);
 
         toggleBtn.setOnClickListener(this);
-        scanConnectBtn.setOnClickListener(this);
-        proxyConfigBtn.setOnClickListener(this);
-
-        singleThreadPool = Executors.newSingleThreadExecutor();
+        scanBtn.setOnClickListener(this);
+        vpnBtn.setOnClickListener(this);
+        proxyToggleBtn.setOnClickListener(this);
 
         Intent intent = new Intent(this, UsageMonitorService.class);
         startService(intent);
@@ -111,6 +116,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         checkAndRequestPermissions();
     }
+
+    public boolean isScanActive() { return scanActive; }
 
     private void checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= 23) {
@@ -125,9 +132,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             handleHotspotToggle();
         } else if (v.getId() == R.id.scanConnectBtn) {
             new IntentIntegrator(this).initiateScan();
+        } else if (v.getId() == R.id.toggleVpnBtn) {
+            handleVpnToggle();
         } else if (v.getId() == R.id.proxyBtn) {
             proxyInfoLay.setVisibility(proxyInfoLay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
         }
+    }
+
+    private void handleVpnToggle() {
+        Intent intent = VpnService.prepare(this);
+        if (intent != null) {
+            startActivityForResult(intent, VPN_REQUEST_CODE);
+        } else {
+            startVpnService();
+        }
+    }
+
+    private void startVpnService() {
+        Intent intent = new Intent(this, HotspotVpnService.class);
+        intent.putExtra("proxy_host", lastProxyHost.isEmpty() ? "192.168.49.1" : lastProxyHost);
+        intent.putExtra("proxy_port", lastProxyPort);
+        startService(intent);
+        Toast.makeText(this, R.string.vpn_started, Toast.LENGTH_SHORT).show();
     }
 
     private boolean isGPSEnabled() {
@@ -283,19 +309,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null) {
-            if (result.getContents() != null) {
-                parseAndConnect(result.getContents());
-            }
+        if (requestCode == VPN_REQUEST_CODE && resultCode == RESULT_OK) {
+            startVpnService();
         } else {
-            super.onActivityResult(requestCode, resultCode, data);
+            IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+            if (result != null) {
+                if (result.getContents() != null) {
+                    parseAndConnect(result.getContents());
+                }
+            } else {
+                super.onActivityResult(requestCode, resultCode, data);
+            }
         }
     }
 
     private void parseAndConnect(String data) {
         WifiQRParser.WifiData wifi = WifiQRParser.parse(data);
         if (wifi != null && !wifi.ssid.isEmpty() && !wifi.password.isEmpty()) {
+            this.lastProxyHost = wifi.proxyHost;
+            this.lastProxyPort = wifi.proxyPort;
             connectToWifiWithProxy(wifi.ssid, wifi.password, wifi.proxyHost, wifi.proxyPort);
         } else {
             Toast.makeText(this, R.string.invalid_qr, Toast.LENGTH_SHORT).show();
@@ -323,6 +355,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             int status = wm.addNetworkSuggestions(Collections.singletonList(suggestion));
             if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
                 Toast.makeText(this, R.string.network_added_success, Toast.LENGTH_SHORT).show();
+                // If it's a proxy hotspot, suggest VPN
+                if (!ph.isEmpty()) {
+                    handleVpnToggle();
+                }
             } else {
                 Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show();
             }
