@@ -1,16 +1,19 @@
 package com.example.wifimanager;
-import com.example.wifimanager.utils.WifiQRParser;
 
 import android.Manifest;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.location.LocationManager;
+import android.net.ProxyInfo;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiManager;
+import android.net.wifi.WifiNetworkSuggestion;
 import android.os.Build;
 import android.os.Bundle;
-import android.content.Context;
-import android.location.LocationManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -20,81 +23,71 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
 import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import com.example.wifimanager.utils.HotspotManager;
 import com.example.wifimanager.utils.ProxyManager;
+import com.example.wifimanager.utils.WifiQRParser;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.common.BitMatrix;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
-import android.net.ProxyInfo;
-import android.net.wifi.WifiNetworkSuggestion;
-import java.util.Collections;
-import com.journeyapps.barcodescanner.BarcodeEncoder;
+
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, HotspotManager.OnHotspotStateListener, ServiceConnection {
     private static final String TAG = "MainActivity";
-    private static final int PERMISSION_REQUEST_CODE = 123;
+    private static final int PERMISSION_REQUEST_CODE = 100;
+
+    private TextView statusLabel;
+    private EditText ssidInput, passInput;
+    private Button toggleBtn, scanConnectBtn, proxyConfigBtn;
+    private LinearLayout proxyInfoLay;
+    private ListView devicesListView;
+    private ImageView qrCodeImg;
+    private TextView proxyHostTxt, proxyInstructionTxt;
+
     private HotspotManager hotspotManager;
     private WifiManager wm;
     private HotspotRepository hotspotRepo;
     private DeviceAdapter deviceAdapter;
-    private boolean scanActive = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private ExecutorService singleThreadPool;
-
-    private TextView statusLabel;
-    private Button toggleBtn;
-    private Button scanConnectBtn;
-    private Button proxyConfigBtn;
-    private EditText ssidInput;
-    private EditText passInput;
-    private View proxyInfoLay;
-    private ListView devicesListView;
-    private ImageView qrCodeImg;
-    private TextView proxyHostTxt;
-    private TextView proxyInstructionTxt;
+    private boolean scanActive = false;
 
     private UsageMonitorService usageService;
     private boolean isBound = false;
 
-    @Override
-    public void onServiceConnected(ComponentName className, IBinder service) {
-        LocalBinder binder = (LocalBinder) service;
-        usageService = binder.getService();
-        isBound = true;
-        updateUI();
-    }
-
-    @Override
-    public void onServiceDisconnected(ComponentName arg0) {
-        isBound = false;
-    }
-
     public boolean isScanActive() { return scanActive; }
 
-    @Override protected void onCreate(Bundle savedInstanceState) {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         statusLabel = (TextView) findViewById(R.id.statusLabel);
-        toggleBtn = (Button) findViewById(R.id.toggleHotspot);
-        scanConnectBtn = (Button) findViewById(R.id.scanConnectBtn);
         ssidInput = (EditText) findViewById(R.id.ssidInput);
         passInput = (EditText) findViewById(R.id.passwordInput);
-        proxyInfoLay = findViewById(R.id.proxyLayout);
+        toggleBtn = (Button) findViewById(R.id.toggleHotspot);
+        scanConnectBtn = (Button) findViewById(R.id.scanConnectBtn);
         proxyConfigBtn = (Button) findViewById(R.id.proxyBtn);
+        proxyInfoLay = (LinearLayout) findViewById(R.id.proxyLayout);
         devicesListView = (ListView) findViewById(R.id.devicesRecyclerView);
         qrCodeImg = (ImageView) findViewById(R.id.qrCodeImage);
         proxyHostTxt = (TextView) findViewById(R.id.proxy_host_txt);
@@ -132,7 +125,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             handleHotspotToggle();
         } else if (v.getId() == R.id.scanConnectBtn) {
             new IntentIntegrator(this).initiateScan();
-            handleHotspotToggle();
         } else if (v.getId() == R.id.proxyBtn) {
             proxyInfoLay.setVisibility(proxyInfoLay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
         }
@@ -204,6 +196,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ssidInput.setText(ssid);
         passInput.setText(password);
         proxyInfoLay.setVisibility(View.VISIBLE);
+
+        if (isBound && usageService != null && usageService.getProxyManager() != null) {
+            usageService.getProxyManager().refreshHostIp();
+        }
+
         generateQRCode(ssid, password);
         updateUI();
     }
@@ -246,6 +243,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (isBound && usageService != null) {
             ProxyManager pm = usageService.getProxyManager();
             if (pm != null) {
+                if (active && !pm.isRunning()) {
+                    pm.startProxy();
+                }
                 String host = pm.getHostIp();
                 proxyHostTxt.setText(getString(R.string.proxy_host, host));
                 proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
@@ -262,7 +262,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
                 generateQRCode(s, p);
             }
-        } else if (!active) {
+        } else {
             scanActive = false;
         }
     }
@@ -310,8 +310,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     .setWpa2Passphrase(pass);
 
             if (!ph.isEmpty()) {
-                ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
-                builder.setHttpProxy(proxy);
+                try {
+                    ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
+                    Method setProxyMethod = builder.getClass().getMethod("setHttpProxy", ProxyInfo.class);
+                    setProxyMethod.invoke(builder, proxy);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error setting proxy suggestion", e);
+                }
             }
 
             WifiNetworkSuggestion suggestion = builder.build();
@@ -331,5 +336,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (requestCode == PERMISSION_REQUEST_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             // Permission granted
         }
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        LocalBinder binder = (LocalBinder) service;
+        usageService = (UsageMonitorService) binder.getService();
+        isBound = true;
+        updateUI();
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+        isBound = false;
+        usageService = null;
     }
 }
