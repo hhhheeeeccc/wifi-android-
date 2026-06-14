@@ -48,33 +48,34 @@ public class HotspotManager {
             toggleNatAsync(false);
         }
 
-        String su = getBin("su");
-        if (su != null) {
-            try {
-                Process pr = new ProcessBuilder(su).start();
-                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-                os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
-                os.flush();
-                os.close();
-                if (en) toggleNatAsync(true);
-                return 1;
-            } catch (Exception e) {
-                Log.e(TAG, "Root method failed", e);
-            }
-        }
+        if (tryRootMethod(en)) return 1;
+        if (Build.VERSION.SDK_INT >= 26) return 2;
 
-        if (Build.VERSION.SDK_INT >= 26) {
-            return 2;
-        }
+        return tryReflectionMethod(en, s, p);
+    }
+
+    private boolean tryRootMethod(boolean en) {
+        String su = getBin("su");
+        if (su == null) return false;
 
         try {
-            if (en) wm.setWifiEnabled(false);
-            WifiConfiguration conf = new WifiConfiguration();
-            conf.SSID = s;
-            if (p != null && p.length() >= 8) {
-                conf.preSharedKey = p;
-                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+            Process pr = new ProcessBuilder(su).start();
+            try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
+                os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
+                os.flush();
             }
+            if (en) toggleNatAsync(true);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Root method failed", e);
+            return false;
+        }
+    }
+
+    private int tryReflectionMethod(boolean en, String s, String p) {
+        try {
+            if (en) wm.setWifiEnabled(false);
+            WifiConfiguration conf = createWifiConfig(s, p);
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
             if (en && res instanceof Boolean && (Boolean) res) {
@@ -86,6 +87,16 @@ public class HotspotManager {
             Log.e(TAG, "Reflection method failed", e);
             return 0;
         }
+    }
+
+    private WifiConfiguration createWifiConfig(String s, String p) {
+        WifiConfiguration conf = new WifiConfiguration();
+        conf.SSID = s;
+        if (p != null && p.length() >= 8) {
+            conf.preSharedKey = p;
+            conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+        }
+        return conf;
     }
 
     @SuppressLint("MissingPermission")
@@ -107,7 +118,9 @@ public class HotspotManager {
         if (hotspotReservation != null) {
             try {
                 hotspotReservation.close();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error closing hotspot", e);
+            }
             hotspotReservation = null;
         }
         toggleNatAsync(false);
@@ -120,6 +133,7 @@ public class HotspotManager {
             Object res = m.invoke(wm);
             return res instanceof Integer && (Integer) res >= 12;
         } catch (Exception e) {
+            Log.e(TAG, "Error getting hotspot state", e);
             return false;
         }
     }
@@ -132,9 +146,14 @@ public class HotspotManager {
         String su = getBin("su");
         String ipt = getBin("iptables");
         if (su != null && ipt != null) {
-            try {
-                Process pr = new ProcessBuilder(su).start();
-                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
+            executeNatCommands(su, ipt, en);
+        }
+    }
+
+    private void executeNatCommands(String su, String ipt, boolean en) {
+        try {
+            Process pr = new ProcessBuilder(su).start();
+            try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
                 if (en) {
                     os.writeBytes("echo 1 > /proc/sys/net/ipv4/ip_forward\n");
                     os.writeBytes(ipt + " -t nat -A POSTROUTING -j MASQUERADE\n");
@@ -145,11 +164,10 @@ public class HotspotManager {
                 }
                 os.writeBytes("exit\n");
                 os.flush();
-                os.close();
-                pr.waitFor();
-            } catch (Exception e) {
-                Log.e(TAG, "NAT toggle failed", e);
             }
+            pr.waitFor();
+        } catch (Exception e) {
+            Log.e(TAG, "NAT commands failed", e);
         }
     }
 
@@ -160,10 +178,10 @@ public class HotspotManager {
         if (su != null && ipt != null) {
             try {
                 Process pr = new ProcessBuilder(su).start();
-                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-                os.writeBytes(ipt + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
-                os.flush();
-                os.close();
+                try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
+                    os.writeBytes(ipt + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
+                    os.flush();
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Block failed", e);
             }
@@ -177,12 +195,12 @@ public class HotspotManager {
         if (su != null && tc != null) {
             try {
                 Process pr = new ProcessBuilder(su).start();
-                DataOutputStream os = new DataOutputStream(pr.getOutputStream());
-                os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\n");
-                os.writeBytes(tc + " class add dev wlan0 parent 1: classid 1:1 htb rate " + k + "kbps ceil " + k + "kbps\n");
-                os.writeBytes("exit\n");
-                os.flush();
-                os.close();
+                try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
+                    os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\n");
+                    os.writeBytes(tc + " class add dev wlan0 parent 1: classid 1:1 htb rate " + k + "kbps ceil " + k + "kbps\n");
+                    os.writeBytes("exit\n");
+                    os.flush();
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Limit failed", e);
             }

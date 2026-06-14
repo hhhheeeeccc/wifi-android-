@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private boolean scanActive = false;
 
     private String lastProxyHost = "";
-    private int lastProxyPort = 8080;
+    private int lastProxyPort = ProxyManager.DEFAULT_PROXY_PORT;
     private WifiManager wm;
 
     @Override
@@ -189,7 +189,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void startVpnService() {
         try {
             Intent intent = new Intent(this, HotspotVpnService.class);
-            intent.putExtra("proxy_host", lastProxyHost.isEmpty() ? "192.168.49.1" : lastProxyHost);
+            intent.putExtra("proxy_host", lastProxyHost.isEmpty() ? ProxyManager.IP_LOCAL_ONLY : lastProxyHost);
             intent.putExtra("proxy_port", lastProxyPort);
             startService(intent);
             Toast.makeText(this, R.string.vpn_started, Toast.LENGTH_SHORT).show();
@@ -258,7 +258,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } catch (Exception e) {
             try {
                 startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                Log.e(TAG, "Could not open settings");
+            }
         }
     }
 
@@ -351,7 +353,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (isBound) {
             try {
                 unbindService(this);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                Log.e(TAG, "Error unbinding service");
+            }
             isBound = false;
         }
         super.onDestroy();

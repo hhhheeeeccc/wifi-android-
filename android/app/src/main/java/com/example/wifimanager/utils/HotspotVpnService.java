@@ -20,13 +20,13 @@ public class HotspotVpnService extends VpnService {
             return START_NOT_STICKY;
         }
 
-        String host = "192.168.49.1";
-        int port = 8080;
+        String host = ProxyManager.IP_LOCAL_ONLY;
+        int port = ProxyManager.DEFAULT_PROXY_PORT;
 
         if (intent != null) {
             host = intent.getStringExtra("proxy_host");
-            if (host == null || host.isEmpty()) host = "192.168.49.1";
-            port = intent.getIntExtra("proxy_port", 8080);
+            if (host == null || host.isEmpty()) host = ProxyManager.IP_LOCAL_ONLY;
+            port = intent.getIntExtra("proxy_port", ProxyManager.DEFAULT_PROXY_PORT);
         }
 
         startVpn(host, port);
@@ -38,9 +38,9 @@ public class HotspotVpnService extends VpnService {
 
         Builder builder = new Builder();
         builder.setSession("HotspotTunnel")
-                .addAddress("10.0.0.2", 24)
+                .addAddress(ProxyManager.IP_VPN_VIRTUAL, 24)
                 .addRoute("0.0.0.0", 0)
-                .addDnsServer("8.8.8.8");
+                .addDnsServer(ProxyManager.DNS_GOOGLE);
 
         if (Build.VERSION.SDK_INT >= 29) {
             try {
