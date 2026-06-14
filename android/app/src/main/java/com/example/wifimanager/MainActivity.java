@@ -79,7 +79,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Global error handling to catch and show errors instead of crashing silently
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e(TAG, "Uncaught Exception", throwable);
             new Handler(Looper.getMainLooper()).post(() -> {
@@ -92,7 +91,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             setContentView(R.layout.activity_main);
         } catch (Exception e) {
             Log.e(TAG, "Error in setContentView", e);
-            Toast.makeText(this, "خطأ في تحميل الواجهة: " + e.getMessage(), Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -108,12 +106,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             initViews();
         } catch (Exception e) {
             Log.e(TAG, "Error in initViews", e);
-            Toast.makeText(this, "خطأ في تهيئة العناصر: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
 
-        // Delay service startup to avoid competition with UI thread during start
         mainHandler.postDelayed(this::setupService, 1000);
-
         checkAndRequestPermissions();
     }
 
@@ -221,8 +216,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (!isGPSEnabled()) {
             Toast.makeText(this, R.string.gps_required, Toast.LENGTH_LONG).show();
             try {
-                Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                startActivity(intent);
+                startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
             } catch (Exception e) {
                 Log.e(TAG, "Could not open location settings", e);
             }
@@ -262,7 +256,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         try {
             startActivity(intent);
         } catch (Exception e) {
-            startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+            try {
+                startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+            } catch (Exception ignored) {}
         }
     }
 
@@ -290,6 +286,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void generateQRCode(String ssid, String password) {
+        if (ssid == null || password == null) return;
         String host = ProxyManager.IP_STANDARD_AP;
         if (isBound && usageService != null && usageService.getProxyManager() != null) {
             host = usageService.getProxyManager().getHostIp();
@@ -346,7 +343,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override protected void onDestroy() {
         scanActive = false;
-        mainHandler.removeCallbacksAndMessages(null);
+        if (mainHandler != null) mainHandler.removeCallbacksAndMessages(null);
         if (singleThreadPool != null) {
             singleThreadPool.shutdownNow();
             singleThreadPool = null;
@@ -396,7 +393,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     .setSsid(ssid)
                     .setWpa2Passphrase(pass);
 
-            if (!ph.isEmpty()) {
+            if (ph != null && !ph.isEmpty()) {
                 try {
                     ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
                     Method setProxyMethod = builder.getClass().getMethod("setHttpProxy", ProxyInfo.class);
@@ -410,7 +407,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             int status = wm.addNetworkSuggestions(Collections.singletonList(suggestion));
             if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
                 Toast.makeText(this, R.string.network_added_success, Toast.LENGTH_SHORT).show();
-                if (!ph.isEmpty()) {
+                if (ph != null && !ph.isEmpty()) {
                     handleVpnToggle();
                 }
             } else {

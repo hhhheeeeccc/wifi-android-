@@ -32,11 +32,13 @@ public class UsageMonitorService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        // Mandatory: startForeground must be called immediately to prevent "RemoteServiceException"
+        setupForeground();
+
         try {
             repository = new HotspotRepository(this);
             proxyManager = new ProxyManager(this);
             proxyManager.startProxy();
-            setupForeground();
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
         }
@@ -85,6 +87,7 @@ public class UsageMonitorService extends Service {
             List<Device> devices = repository.getConnectedDevices();
             for (int i = 0; i < devices.size(); i++) {
                 Device device = devices.get(i);
+                if (device == null || device.getIpAddress() == null) continue;
                 long usageBytes = proxyManager.getAndResetUsage(device.getIpAddress());
                 if (usageBytes > 0) {
                     long currentBytes = device.getUsedData() * 1024 * 1024;
