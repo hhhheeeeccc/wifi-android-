@@ -1,4 +1,5 @@
 package com.example.wifimanager;
+import com.example.wifimanager.utils.WifiQRParser;
 
 import android.Manifest;
 import android.content.ComponentName;
@@ -33,6 +34,11 @@ import com.example.wifimanager.utils.ProxyManager;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.common.BitMatrix;
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
+import android.net.ProxyInfo;
+import android.net.wifi.WifiNetworkSuggestion;
+import java.util.Collections;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
@@ -42,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 123;
     private HotspotManager hotspotManager;
+    private WifiManager wm;
     private HotspotRepository hotspotRepo;
     private DeviceAdapter deviceAdapter;
     private boolean scanActive = false;
@@ -50,6 +57,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private TextView statusLabel;
     private Button toggleBtn;
+    private Button scanConnectBtn;
     private Button proxyConfigBtn;
     private EditText ssidInput;
     private EditText passInput;
@@ -82,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         statusLabel = (TextView) findViewById(R.id.statusLabel);
         toggleBtn = (Button) findViewById(R.id.toggleHotspot);
+        scanConnectBtn = (Button) findViewById(R.id.scanConnectBtn);
         ssidInput = (EditText) findViewById(R.id.ssidInput);
         passInput = (EditText) findViewById(R.id.passwordInput);
         proxyInfoLay = findViewById(R.id.proxyLayout);
@@ -92,11 +101,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         proxyInstructionTxt = (TextView) findViewById(R.id.proxy_instruction);
 
         hotspotManager = new HotspotManager(this);
+        wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         hotspotRepo = new HotspotRepository(this);
         deviceAdapter = new DeviceAdapter(this, new ArrayList<Device>());
         devicesListView.setAdapter(deviceAdapter);
 
         toggleBtn.setOnClickListener(this);
+        scanConnectBtn.setOnClickListener(this);
         proxyConfigBtn.setOnClickListener(this);
 
         singleThreadPool = Executors.newSingleThreadExecutor();
@@ -118,6 +129,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override public void onClick(View v) {
         if (v.getId() == R.id.toggleHotspot) {
+            handleHotspotToggle();
+        } else if (v.getId() == R.id.scanConnectBtn) {
+            new IntentIntegrator(this).initiateScan();
             handleHotspotToggle();
         } else if (v.getId() == R.id.proxyBtn) {
             proxyInfoLay.setVisibility(proxyInfoLay.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
@@ -205,7 +219,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void generateQRCode(String ssid, String password) {
-        String content = "WIFI:T:WPA;S:" + ssid + ";P:" + password + ";;";
+        String host = "192.168.43.1";
+        if (isBound && usageService != null && usageService.getProxyManager() != null) {
+            host = usageService.getProxyManager().getHostIp();
+        }
+        // Custom format: PH = Proxy Host, PP = Proxy Port
+        String content = "WIFI:T:WPA;S:" + ssid + ";P:" + password + ";PH:" + host + ";PP:8080;;";
         MultiFormatWriter writer = new MultiFormatWriter();
         try {
             BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
@@ -260,6 +279,51 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             isBound = false;
         }
         super.onDestroy();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        if (result != null) {
+            if (result.getContents() != null) {
+                parseAndConnect(result.getContents());
+            }
+        } else {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    private void parseAndConnect(String data) {
+        WifiQRParser.WifiData wifi = WifiQRParser.parse(data);
+        if (wifi != null && !wifi.ssid.isEmpty() && !wifi.password.isEmpty()) {
+            connectToWifiWithProxy(wifi.ssid, wifi.password, wifi.proxyHost, wifi.proxyPort);
+        } else {
+            Toast.makeText(this, R.string.invalid_qr, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void connectToWifiWithProxy(String ssid, String pass, String ph, int pp) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            Toast.makeText(this, R.string.connecting_wifi, Toast.LENGTH_SHORT).show();
+            WifiNetworkSuggestion.Builder builder = new WifiNetworkSuggestion.Builder()
+                    .setSsid(ssid)
+                    .setWpa2Passphrase(pass);
+
+            if (!ph.isEmpty()) {
+                ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
+                builder.setHttpProxy(proxy);
+            }
+
+            WifiNetworkSuggestion suggestion = builder.build();
+            int status = wm.addNetworkSuggestions(Collections.singletonList(suggestion));
+            if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
+                Toast.makeText(this, R.string.network_added_success, Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "هذه الخاصية تتطلب أندرويد 10 فما فوق", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
