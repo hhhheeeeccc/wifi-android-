@@ -4,7 +4,11 @@ import com.example.wifimanager.model.Device;
 import com.example.wifimanager.repository.HotspotRepository;
 import java.net.ServerSocket;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -55,6 +59,36 @@ public class ProxyManager {
 
     public void setHostIp(String ip) { this.hostIp = ip; }
     public String getHostIp() { return hostIp; }
+
+    public void refreshHostIp() {
+        InetAddress addr = getHotspotAddress();
+        if (addr != null) {
+            this.hostIp = addr.getHostAddress();
+        }
+    }
+
+    public InetAddress getHotspotAddress() {
+        try {
+            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface intf : interfaces) {
+                String name = intf.getName().toLowerCase();
+                // Common names for hotspot/wifi-direct interfaces: wlan, ap, softap, p2p
+                if (name.contains("wlan") || name.contains("ap") || name.contains("p2p")) {
+                    List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+                    for (InetAddress addr : addrs) {
+                        if (!addr.isLoopbackAddress() && addr.getAddress().length == 4) {
+                            String sAddr = addr.getHostAddress();
+                            // Hotspot IPs usually end in .1
+                            if (sAddr.endsWith(".1")) {
+                                return addr;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
 
     public void submitTask(Runnable task) {
         ExecutorService pool = threadPool;

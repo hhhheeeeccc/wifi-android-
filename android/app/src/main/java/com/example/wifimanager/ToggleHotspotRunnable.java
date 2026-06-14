@@ -36,7 +36,6 @@ public class ToggleHotspotRunnable implements Runnable {
         public void run() {
             if (enable) {
                 if (result == 1 || result == 4) {
-                    Toast.makeText(activity, R.string.hotspot_root_instruction, Toast.LENGTH_SHORT).show();
                     activity.updateUI();
                 } else if (result == 2) {
                     activity.startLocalHotspotFlow();
