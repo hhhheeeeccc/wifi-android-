@@ -11,13 +11,15 @@ import android.util.Log;
 
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
 public class HotspotManager {
     private static final String TAG = "HotspotManager";
-    private final Context ctx;
+    private static final String EXIT_CMD = "exit\n";
     private final WifiManager wm;
     private static final List<String> BIN_PATHS = Arrays.asList("/system/bin/", "/system/xbin/", "/sbin/");
     WifiManager.LocalOnlyHotspotReservation hotspotReservation;
@@ -29,7 +31,6 @@ public class HotspotManager {
     }
 
     public HotspotManager(Context c) {
-        this.ctx = c;
         this.wm = (WifiManager) c.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
 
@@ -42,7 +43,6 @@ public class HotspotManager {
     }
 
     public int setHotspotEnabled(boolean en, String s, String p) {
-        Log.d(TAG, "setHotspotEnabled: " + en);
         if (!en) {
             stopLocalOnlyHotspot();
             toggleNatAsync(false);
@@ -61,13 +61,14 @@ public class HotspotManager {
         try {
             Process pr = new ProcessBuilder(su).start();
             try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
-                os.writeBytes("cmd tethering " + (en ? "start-tethering" : "stop-tethering") + " 0\nexit\n");
+                String cmd = en ? "start-tethering" : "stop-tethering";
+                os.writeBytes("cmd tethering " + cmd + " 0\n" + EXIT_CMD);
                 os.flush();
             }
             if (en) toggleNatAsync(true);
             return true;
-        } catch (Exception e) {
-            Log.e(TAG, "Root method failed", e);
+        } catch (IOException e) {
+            Log.e(TAG, "Root I/O failed", e);
             return false;
         }
     }
@@ -78,13 +79,13 @@ public class HotspotManager {
             WifiConfiguration conf = createWifiConfig(s, p);
             Method m = wm.getClass().getMethod("setWifiApEnabled", WifiConfiguration.class, boolean.class);
             Object res = m.invoke(wm, conf, en);
-            if (en && res instanceof Boolean && (Boolean) res) {
+            if (en && Boolean.TRUE.equals(res)) {
                 toggleNatAsync(true);
                 return 4;
             }
-            return (res instanceof Boolean && (Boolean) res) ? 1 : 0;
-        } catch (Exception e) {
-            Log.e(TAG, "Reflection method failed", e);
+            return Boolean.TRUE.equals(res) ? 1 : 0;
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            Log.e(TAG, "Reflection call failed", e);
             return 0;
         }
     }
@@ -132,7 +133,7 @@ public class HotspotManager {
             Method m = wm.getClass().getDeclaredMethod("getWifiApState");
             Object res = m.invoke(wm);
             return res instanceof Integer && (Integer) res >= 12;
-        } catch (Exception e) {
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             Log.e(TAG, "Error getting hotspot state", e);
             return false;
         }
@@ -162,12 +163,13 @@ public class HotspotManager {
                     os.writeBytes(ipt + " -t nat -F\n");
                     os.writeBytes(ipt + " -F\n");
                 }
-                os.writeBytes("exit\n");
+                os.writeBytes(EXIT_CMD);
                 os.flush();
             }
             pr.waitFor();
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException e) {
             Log.e(TAG, "NAT commands failed", e);
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -179,10 +181,11 @@ public class HotspotManager {
             try {
                 Process pr = new ProcessBuilder(su).start();
                 try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
-                    os.writeBytes(ipt + " -" + (b ? "I" : "D") + " FORWARD -m mac --mac-source " + mac + " -j DROP\nexit\n");
+                    String op = b ? "I" : "D";
+                    os.writeBytes(ipt + " -" + op + " FORWARD -m mac --mac-source " + mac + " -j DROP\n" + EXIT_CMD);
                     os.flush();
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 Log.e(TAG, "Block failed", e);
             }
         }
@@ -198,10 +201,10 @@ public class HotspotManager {
                 try (DataOutputStream os = new DataOutputStream(pr.getOutputStream())) {
                     os.writeBytes(tc + " qdisc add dev wlan0 root handle 1: htb default 10\n");
                     os.writeBytes(tc + " class add dev wlan0 parent 1: classid 1:1 htb rate " + k + "kbps ceil " + k + "kbps\n");
-                    os.writeBytes("exit\n");
+                    os.writeBytes(EXIT_CMD);
                     os.flush();
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 Log.e(TAG, "Limit failed", e);
             }
         }

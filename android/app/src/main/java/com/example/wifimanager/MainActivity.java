@@ -57,12 +57,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int VPN_REQUEST_CODE = 200;
 
-    private TextView statusLabel, proxyHostTxt, proxyPortTxt, proxyInstructionTxt;
+    private TextView statusLabel, proxyHostTxt, proxyInstructionTxt;
     private EditText ssidInput, passInput;
-    private Button toggleBtn, scanBtn, proxyToggleBtn, vpnBtn;
+    private Button toggleBtn, scanBtn, vpnBtn;
     private LinearLayout proxyInfoLay;
     private ImageView qrCodeImg;
-    private ListView deviceListView;
 
     private HotspotManager hotspotManager;
     private HotspotRepository hotspotRepo;
@@ -102,12 +101,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         hotspotRepo = new HotspotRepository(this);
         deviceAdapter = new DeviceAdapter(this, new ArrayList<>());
 
-        try {
-            initViews();
-        } catch (Exception e) {
-            Log.e(TAG, "Error in initViews", e);
-        }
-
+        initViews();
         mainHandler.postDelayed(this::setupService, 1000);
         checkAndRequestPermissions();
     }
@@ -119,13 +113,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         toggleBtn = findViewById(R.id.toggleHotspot);
         scanBtn = findViewById(R.id.scanConnectBtn);
         vpnBtn = findViewById(R.id.toggleVpnBtn);
-        proxyToggleBtn = findViewById(R.id.proxyBtn);
+        Button proxyToggleBtn = findViewById(R.id.proxyBtn);
         proxyInfoLay = findViewById(R.id.proxyLayout);
         proxyHostTxt = findViewById(R.id.proxy_host_txt);
-        proxyPortTxt = findViewById(R.id.proxy_port_txt);
         proxyInstructionTxt = findViewById(R.id.proxy_instruction);
         qrCodeImg = findViewById(R.id.qrCodeImage);
-        deviceListView = findViewById(R.id.devicesRecyclerView);
+        ListView deviceListView = findViewById(R.id.devicesRecyclerView);
 
         if (deviceListView != null) deviceListView.setAdapter(deviceAdapter);
         if (toggleBtn != null) toggleBtn.setOnClickListener(this);
