@@ -68,26 +68,28 @@ public class ProxyManager {
     }
 
     public InetAddress getHotspotAddress() {
+        InetAddress best = null;
         try {
             List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
             for (NetworkInterface intf : interfaces) {
                 String name = intf.getName().toLowerCase();
-                // Common names for hotspot/wifi-direct interfaces: wlan, ap, softap, p2p
-                if (name.contains("wlan") || name.contains("ap") || name.contains("p2p")) {
+                // Prioritize p2p and ap interfaces
+                if (name.contains("p2p") || name.contains("ap") || name.contains("wlan") || name.contains("softap")) {
                     List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
                     for (InetAddress addr : addrs) {
                         if (!addr.isLoopbackAddress() && addr.getAddress().length == 4) {
                             String sAddr = addr.getHostAddress();
                             // Hotspot IPs usually end in .1
                             if (sAddr.endsWith(".1")) {
-                                return addr;
+                                if (sAddr.equals("192.168.49.1") || sAddr.equals("192.168.43.1")) return addr;
+                                if (best == null) best = addr;
                             }
                         }
                     }
                 }
             }
         } catch (Exception ignored) {}
-        return null;
+        return best;
     }
 
     public void submitTask(Runnable task) {
