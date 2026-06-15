@@ -24,6 +24,7 @@ public class UsageMonitorService extends Service {
     private ProxyManager proxyManager;
     private volatile boolean isRunning = false;
     private static final String CHANNEL_ID = "proxy_service_channel";
+    private static final int NOTIFICATION_ID = 1001;
     private final IBinder binder = new LocalBinder(this);
 
     public boolean isRunning() { return isRunning; }
@@ -32,15 +33,14 @@ public class UsageMonitorService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
-        // Mandatory: startForeground must be called immediately to prevent "RemoteServiceException"
         setupForeground();
 
         try {
             repository = new HotspotRepository(this);
             proxyManager = new ProxyManager(this);
             proxyManager.startProxy();
-        } catch (Exception e) {
-            Log.e(TAG, "Error in onCreate", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Error in onCreate", t);
         }
     }
 
@@ -53,7 +53,6 @@ public class UsageMonitorService extends Service {
                     NotificationManager.IMPORTANCE_LOW
                 );
                 channel.setLightColor(Color.BLUE);
-                channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
                 NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (manager != null) manager.createNotificationChannel(channel);
 
@@ -66,10 +65,10 @@ public class UsageMonitorService extends Service {
                     .setCategory(Notification.CATEGORY_SERVICE)
                     .build();
 
-                startForeground(1, notification);
+                startForeground(NOTIFICATION_ID, notification);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Foreground setup error", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Foreground setup error", t);
         }
     }
 
@@ -85,6 +84,7 @@ public class UsageMonitorService extends Service {
         try {
             if (repository == null || proxyManager == null) return;
             List<Device> devices = repository.getConnectedDevices();
+            if (devices == null) return;
             for (int i = 0; i < devices.size(); i++) {
                 Device device = devices.get(i);
                 if (device == null || device.getIpAddress() == null) continue;
@@ -100,8 +100,8 @@ public class UsageMonitorService extends Service {
                     repository.saveDevice(device);
                 }
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Usage check error", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Usage check error", t);
         }
     }
 
@@ -112,8 +112,8 @@ public class UsageMonitorService extends Service {
         if (proxyManager != null) {
             try {
                 proxyManager.stopProxy();
-            } catch (Exception e) {
-                Log.e(TAG, "Error stopping proxy", e);
+            } catch (Throwable t) {
+                Log.e(TAG, "Error stopping proxy", t);
             }
         }
         super.onDestroy();

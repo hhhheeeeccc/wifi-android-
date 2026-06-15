@@ -69,7 +69,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private UsageMonitorService usageService;
     private boolean isBound = false;
     private Handler mainHandler;
-    private ExecutorService singleThreadPool;
+    private ExecutorService threadPool;
     private boolean scanActive = false;
 
     private String lastProxyHost = "";
@@ -81,27 +81,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e(TAG, "Uncaught Exception", throwable);
             new Handler(Looper.getMainLooper()).post(() -> {
-                Toast.makeText(this, "حدث خطأ: " + throwable.getMessage(), Toast.LENGTH_LONG).show();
+                try {
+                    Toast.makeText(getApplicationContext(), "حدث خطأ: " + throwable.getMessage(), Toast.LENGTH_LONG).show();
+                } catch (Throwable ignored) {}
             });
         });
 
         super.onCreate(savedInstanceState);
         try {
             setContentView(R.layout.activity_main);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setContentView", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "setContentView failed", t);
             return;
         }
 
         mainHandler = new Handler(Looper.getMainLooper());
-        singleThreadPool = Executors.newSingleThreadExecutor();
+        threadPool = Executors.newCachedThreadPool();
 
-        wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        hotspotManager = new HotspotManager(this);
-        hotspotRepo = new HotspotRepository(this);
-        deviceAdapter = new DeviceAdapter(this, new ArrayList<>());
+        try {
+            wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            hotspotManager = new HotspotManager(this);
+            hotspotRepo = new HotspotRepository(this);
+            deviceAdapter = new DeviceAdapter(this, new ArrayList<>());
+            initViews();
+        } catch (Throwable t) {
+            Log.e(TAG, "Initialization failed", t);
+        }
 
-        initViews();
         mainHandler.postDelayed(this::setupService, 1000);
         checkAndRequestPermissions();
     }
@@ -128,6 +134,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void setupService() {
+        if (isFinishing()) return;
         try {
             Intent intent = new Intent(this, UsageMonitorService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -136,29 +143,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 startService(intent);
             }
             bindService(intent, this, Context.BIND_AUTO_CREATE);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start service", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Service setup failed", t);
         }
     }
 
     public boolean isScanActive() { return scanActive; }
 
     private void checkAndRequestPermissions() {
-        if (Build.VERSION.SDK_INT >= 23) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
+        try {
+            if (Build.VERSION.SDK_INT >= 23) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
+                }
             }
+        } catch (Throwable t) {
+            Log.e(TAG, "Permission check failed", t);
         }
     }
 
     @Override public void onClick(View v) {
+        if (v == null) return;
         int id = v.getId();
         if (id == R.id.toggleHotspot) {
             handleHotspotToggle();
         } else if (id == R.id.scanConnectBtn) {
             try {
                 new IntentIntegrator(this).initiateScan();
-            } catch (Exception e) {
+            } catch (Throwable t) {
                 Toast.makeText(this, "خطأ في بدء الماسح", Toast.LENGTH_SHORT).show();
             }
         } else if (id == R.id.toggleVpnBtn) {
@@ -171,11 +183,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void handleVpnToggle() {
-        Intent intent = VpnService.prepare(this);
-        if (intent != null) {
-            startActivityForResult(intent, VPN_REQUEST_CODE);
-        } else {
-            startVpnService();
+        try {
+            Intent intent = VpnService.prepare(this);
+            if (intent != null) {
+                startActivityForResult(intent, VPN_REQUEST_CODE);
+            } else {
+                startVpnService();
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "VPN toggle failed", t);
         }
     }
 
@@ -186,78 +202,83 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             intent.putExtra("proxy_port", lastProxyPort);
             startService(intent);
             Toast.makeText(this, R.string.vpn_started, Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Log.e(TAG, "VPN Start Error", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "VPN start failed", t);
         }
     }
 
     private boolean isGPSEnabled() {
-        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        return lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+        try {
+            LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            return lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private void handleHotspotToggle() {
-        final boolean enable = !hotspotManager.isHotspotEnabled();
-        if (!enable) {
-            hotspotManager.stopLocalOnlyHotspot();
-            if (singleThreadPool != null && !singleThreadPool.isShutdown()) {
-                singleThreadPool.execute(new ToggleHotspotRunnable(hotspotManager, false, "", "", mainHandler, this));
+        try {
+            final boolean enable = !hotspotManager.isHotspotEnabled();
+            if (!enable) {
+                hotspotManager.stopLocalOnlyHotspot();
+                threadPool.execute(new ToggleHotspotRunnable(hotspotManager, false, "", "", mainHandler, this));
+                return;
             }
-            return;
-        }
 
-        if (!isGPSEnabled()) {
-            Toast.makeText(this, R.string.gps_required, Toast.LENGTH_LONG).show();
-            try {
+            if (!isGPSEnabled()) {
+                Toast.makeText(this, R.string.gps_required, Toast.LENGTH_LONG).show();
                 startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
-            } catch (Exception e) {
-                Log.e(TAG, "Could not open location settings", e);
+                return;
             }
-            return;
-        }
 
-        if (ssidInput == null || passInput == null) return;
-        final String ssid = ssidInput.getText().toString();
-        final String pass = passInput.getText().toString();
-        if (pass.length() < 8) {
-            Toast.makeText(this, R.string.password_error, Toast.LENGTH_SHORT).show();
-            return;
-        }
+            if (ssidInput == null || passInput == null) return;
+            final String ssid = ssidInput.getText().toString();
+            final String pass = passInput.getText().toString();
+            if (pass.length() < 8) {
+                Toast.makeText(this, R.string.password_error, Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-        if (singleThreadPool != null && !singleThreadPool.isShutdown()) {
-            singleThreadPool.execute(new ToggleHotspotRunnable(hotspotManager, true, ssid, pass, mainHandler, this));
+            threadPool.execute(new ToggleHotspotRunnable(hotspotManager, true, ssid, pass, mainHandler, this));
+        } catch (Throwable t) {
+            Log.e(TAG, "Hotspot toggle failed", t);
         }
     }
 
     public void startLocalHotspotFlow() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
-                return;
+        if (isFinishing()) return;
+        try {
+            if (Build.VERSION.SDK_INT >= 26) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
+                    return;
+                }
+                Toast.makeText(this, getString(R.string.starting_local_hotspot), Toast.LENGTH_SHORT).show();
+                hotspotManager.startLocalOnlyHotspot(this);
+            } else {
+                openSystemTethering();
             }
-            Toast.makeText(this, getString(R.string.starting_local_hotspot), Toast.LENGTH_SHORT).show();
-            hotspotManager.startLocalOnlyHotspot(this);
-        } else {
+        } catch (Throwable t) {
             openSystemTethering();
         }
     }
 
     public void openSystemTethering() {
+        if (isFinishing()) return;
         Toast.makeText(this, R.string.hotspot_manual_instruction, Toast.LENGTH_LONG).show();
         Intent intent = new Intent();
         intent.setClassName("com.android.settings", "com.android.settings.TetherSettings");
         try {
             startActivity(intent);
-        } catch (Exception e) {
+        } catch (Throwable t) {
             try {
                 startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
-            } catch (Exception ignored) {
-                Log.e(TAG, "Could not open settings");
-            }
+            } catch (Throwable ignored) {}
         }
     }
 
     @Override public void onStarted(String ssid, String password) {
+        if (isFinishing()) return;
         if (ssidInput != null) ssidInput.setText(ssid);
         if (passInput != null) passInput.setText(password);
         if (proxyInfoLay != null) proxyInfoLay.setVisibility(View.VISIBLE);
@@ -266,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             usageService.getProxyManager().refreshHostIp();
         }
 
-        generateQRCode(ssid, password);
+        generateQRCodeAsync(ssid, password);
         updateUI();
     }
 
@@ -276,79 +297,80 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override public void onFailure(int reason) {
-        Toast.makeText(this, getString(R.string.hotspot_manual_instruction), Toast.LENGTH_SHORT).show();
         openSystemTethering();
     }
 
-    private void generateQRCode(String ssid, String password) {
+    private void generateQRCodeAsync(final String ssid, final String password) {
         if (ssid == null || password == null) return;
-        String host = ProxyManager.IP_STANDARD_AP;
-        if (isBound && usageService != null && usageService.getProxyManager() != null) {
-            host = usageService.getProxyManager().getHostIp();
-        }
-        String content = "WIFI:T:WPA;S:" + ssid + ";P:" + password + ";PH:" + host + ";PP:8080;;";
-        MultiFormatWriter writer = new MultiFormatWriter();
-        try {
-            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
-            BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
-            Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
-            if (qrCodeImg != null) {
-                qrCodeImg.setImageBitmap(bitmap);
-                qrCodeImg.setVisibility(View.VISIBLE);
+        threadPool.execute(() -> {
+            String host = ProxyManager.IP_STANDARD_AP;
+            if (isBound && usageService != null && usageService.getProxyManager() != null) {
+                host = usageService.getProxyManager().getHostIp();
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error generating QR code", e);
-        }
+            final String content = "WIFI:T:WPA;S:" + ssid + ";P:" + password + ";PH:" + host + ";PP:8080;;";
+            try {
+                MultiFormatWriter writer = new MultiFormatWriter();
+                final BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
+                final BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
+                final Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
+                mainHandler.post(() -> {
+                    if (!isFinishing() && qrCodeImg != null) {
+                        qrCodeImg.setImageBitmap(bitmap);
+                        qrCodeImg.setVisibility(View.VISIBLE);
+                    }
+                });
+            } catch (Throwable t) {
+                Log.e(TAG, "QR generation failed", t);
+            }
+        });
     }
 
     public void updateUI() {
         if (isFinishing()) return;
-        boolean active = hotspotManager.isHotspotEnabled();
-        if (statusLabel != null) statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
-        if (toggleBtn != null) toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
+        try {
+            boolean active = hotspotManager.isHotspotEnabled();
+            if (statusLabel != null) statusLabel.setText(active ? R.string.status_active : R.string.status_inactive);
+            if (toggleBtn != null) toggleBtn.setText(active ? R.string.disable_hotspot : R.string.enable_hotspot);
 
-        if (isBound && usageService != null) {
-            ProxyManager pm = usageService.getProxyManager();
-            if (pm != null) {
-                if (active && !pm.isRunning()) {
-                    pm.startProxy();
-                }
-                String host = pm.getHostIp();
-                if (proxyHostTxt != null) proxyHostTxt.setText(getString(R.string.proxy_host, host));
-                if (proxyInstructionTxt != null) proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
-            }
-        }
-
-        if (active) {
-            if (!scanActive) {
-                scanActive = true;
-                mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
-            }
-            if (ssidInput != null && passInput != null && qrCodeImg != null) {
-                String s = ssidInput.getText().toString();
-                String p = passInput.getText().toString();
-                if (qrCodeImg.getVisibility() != View.VISIBLE && !s.isEmpty() && !p.isEmpty()) {
-                    generateQRCode(s, p);
+            if (isBound && usageService != null) {
+                ProxyManager pm = usageService.getProxyManager();
+                if (pm != null) {
+                    if (active && !pm.isRunning()) pm.startProxy();
+                    String host = pm.getHostIp();
+                    if (proxyHostTxt != null) proxyHostTxt.setText(getString(R.string.proxy_host, host));
+                    if (proxyInstructionTxt != null) proxyInstructionTxt.setText(getString(R.string.proxy_instruction, host));
                 }
             }
-        } else {
-            scanActive = false;
+
+            if (active) {
+                if (!scanActive) {
+                    scanActive = true;
+                    mainHandler.post(new ScanRunnable(this, hotspotRepo, deviceAdapter, mainHandler));
+                }
+                if (ssidInput != null && passInput != null && qrCodeImg != null && qrCodeImg.getVisibility() != View.VISIBLE) {
+                    String s = ssidInput.getText().toString();
+                    String p = passInput.getText().toString();
+                    if (!s.isEmpty() && !p.isEmpty()) generateQRCodeAsync(s, p);
+                }
+            } else {
+                scanActive = false;
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "UI update failed", t);
         }
     }
 
     @Override protected void onDestroy() {
         scanActive = false;
         if (mainHandler != null) mainHandler.removeCallbacksAndMessages(null);
-        if (singleThreadPool != null) {
-            singleThreadPool.shutdownNow();
-            singleThreadPool = null;
+        if (threadPool != null) {
+            threadPool.shutdownNow();
+            threadPool = null;
         }
         if (isBound) {
             try {
                 unbindService(this);
-            } catch (Exception ignored) {
-                Log.e(TAG, "Error unbinding service");
-            }
+            } catch (Throwable ignored) {}
             isBound = false;
         }
         super.onDestroy();
@@ -366,60 +388,61 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } else {
                     super.onActivityResult(requestCode, resultCode, data);
                 }
-            } catch (Exception e) {
+            } catch (Throwable t) {
                 super.onActivityResult(requestCode, resultCode, data);
             }
         }
     }
 
     private void parseAndConnect(String data) {
-        WifiQRParser.WifiData wifi = WifiQRParser.parse(data);
-        if (wifi != null && !wifi.ssid.isEmpty() && !wifi.password.isEmpty()) {
-            this.lastProxyHost = wifi.proxyHost;
-            this.lastProxyPort = wifi.proxyPort;
-            connectToWifiWithProxy(wifi.ssid, wifi.password, wifi.proxyHost, wifi.proxyPort);
-        } else {
+        try {
+            WifiQRParser.WifiData wifi = WifiQRParser.parse(data);
+            if (wifi != null && !wifi.ssid.isEmpty() && !wifi.password.isEmpty()) {
+                this.lastProxyHost = wifi.proxyHost;
+                this.lastProxyPort = wifi.proxyPort;
+                connectToWifiWithProxy(wifi.ssid, wifi.password, wifi.proxyHost, wifi.proxyPort);
+            } else {
+                Toast.makeText(this, R.string.invalid_qr, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Throwable t) {
             Toast.makeText(this, R.string.invalid_qr, Toast.LENGTH_SHORT).show();
         }
     }
 
     private void connectToWifiWithProxy(String ssid, String pass, String ph, int pp) {
-        if (Build.VERSION.SDK_INT >= 29) {
-            Toast.makeText(this, R.string.connecting_wifi, Toast.LENGTH_SHORT).show();
-            WifiNetworkSuggestion.Builder builder = new WifiNetworkSuggestion.Builder()
-                    .setSsid(ssid)
-                    .setWpa2Passphrase(pass);
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                Toast.makeText(this, R.string.connecting_wifi, Toast.LENGTH_SHORT).show();
+                WifiNetworkSuggestion.Builder builder = new WifiNetworkSuggestion.Builder()
+                        .setSsid(ssid).setWpa2Passphrase(pass);
 
-            if (ph != null && !ph.isEmpty()) {
-                try {
-                    ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
-                    Method setProxyMethod = builder.getClass().getMethod("setHttpProxy", ProxyInfo.class);
-                    setProxyMethod.invoke(builder, proxy);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error setting proxy suggestion", e);
-                }
-            }
-
-            WifiNetworkSuggestion suggestion = builder.build();
-            int status = wm.addNetworkSuggestions(Collections.singletonList(suggestion));
-            if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
-                Toast.makeText(this, R.string.network_added_success, Toast.LENGTH_SHORT).show();
                 if (ph != null && !ph.isEmpty()) {
-                    handleVpnToggle();
+                    try {
+                        ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
+                        Method setProxyMethod = builder.getClass().getMethod("setHttpProxy", ProxyInfo.class);
+                        setProxyMethod.invoke(builder, proxy);
+                    } catch (Throwable t) {
+                        Log.e(TAG, "Proxy suggestion failed", t);
+                    }
+                }
+
+                int status = wm.addNetworkSuggestions(Collections.singletonList(builder.build()));
+                if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
+                    Toast.makeText(this, R.string.network_added_success, Toast.LENGTH_SHORT).show();
+                    if (ph != null && !ph.isEmpty()) handleVpnToggle();
+                } else {
+                    Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show();
                 }
             } else {
-                Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "هذه الخاصية تتطلب أندرويد 10 فما فوق", Toast.LENGTH_SHORT).show();
             }
-        } else {
-            Toast.makeText(this, "هذه الخاصية تتطلب أندرويد 10 فما فوق", Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show();
         }
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Permission granted
-        }
     }
 
     @Override
@@ -429,8 +452,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             usageService = (UsageMonitorService) binder.getService();
             isBound = true;
             updateUI();
-        } catch (Exception e) {
-            Log.e(TAG, "Service Connect Error", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Service link failed", t);
         }
     }
 

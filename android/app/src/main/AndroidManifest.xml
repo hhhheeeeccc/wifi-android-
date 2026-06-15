@@ -30,7 +30,10 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
-      <service android:name=".UsageMonitorService" android:exported="false" />
+      <service
+          android:name=".UsageMonitorService"
+          android:exported="false"
+          android:foregroundServiceType="dataSync" />
       <service
           android:name=".utils.HotspotVpnService"
           android:permission="android.permission.BIND_VPN_SERVICE"
