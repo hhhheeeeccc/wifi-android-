@@ -38,8 +38,8 @@ public class HotspotRepository {
             e.putBoolean(m + "b", d.isBlocked());
             e.putString(m + "ip", d.getIpAddress());
             e.apply();
-        } catch (Throwable t) {
-            Log.e(TAG, "Error saving device", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving device", e);
         }
     }
 
@@ -50,8 +50,8 @@ public class HotspotRepository {
             d.setUsedData(p.getLong(m + "u", 0));
             d.setSpeedLimit(p.getInt(m + "s", 0));
             d.setBlocked(p.getBoolean(m + "b", false));
-        } catch (Throwable t) {
-            Log.e(TAG, "Error loading device", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading device", e);
         }
     }
 
@@ -72,8 +72,8 @@ public class HotspotRepository {
                     }
                 }
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Arp table read failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Arp table read failed", e);
         }
 
         try {
@@ -86,8 +86,8 @@ public class HotspotRepository {
                     }
                 }
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Active IPs fallback failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Active IPs fallback failed", e);
         }
 
         return list;

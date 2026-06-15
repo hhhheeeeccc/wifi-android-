@@ -39,8 +39,8 @@ public class UsageMonitorService extends Service {
             repository = new HotspotRepository(this);
             proxyManager = new ProxyManager(this);
             proxyManager.startProxy();
-        } catch (Throwable t) {
-            Log.e(TAG, "Error in onCreate", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onCreate", e);
         }
     }
 
@@ -67,8 +67,8 @@ public class UsageMonitorService extends Service {
 
                 startForeground(NOTIFICATION_ID, notification);
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Foreground setup error", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Foreground setup error", e);
         }
     }
 
@@ -100,8 +100,8 @@ public class UsageMonitorService extends Service {
                     repository.saveDevice(device);
                 }
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Usage check error", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Usage check error", e);
         }
     }
 
@@ -112,8 +112,8 @@ public class UsageMonitorService extends Service {
         if (proxyManager != null) {
             try {
                 proxyManager.stopProxy();
-            } catch (Throwable t) {
-                Log.e(TAG, "Error stopping proxy", t);
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping proxy", e);
             }
         }
         super.onDestroy();

@@ -20,6 +20,9 @@ import java.util.List;
 public class HotspotManager {
     private static final String TAG = "HotspotManager";
     private static final String EXIT_CMD = "exit\n";
+    private static final String BIN_SU = "su";
+    private static final String BIN_IPTABLES = "iptables";
+    private static final String BIN_TC = "tc";
     private final WifiManager wm;
     private static final List<String> BIN_PATHS = Arrays.asList("/system/bin/", "/system/xbin/", "/sbin/");
     WifiManager.LocalOnlyHotspotReservation hotspotReservation;
@@ -39,7 +42,7 @@ public class HotspotManager {
             try {
                 File f = new File(path + name);
                 if (f.exists()) return f.getAbsolutePath();
-            } catch (Throwable ignored) {}
+            } catch (Exception ignored) {}
         }
         return null;
     }
@@ -55,14 +58,14 @@ public class HotspotManager {
             if (Build.VERSION.SDK_INT >= 26) return 2;
 
             return tryReflectionMethod(en, s, p);
-        } catch (Throwable t) {
-            Log.e(TAG, "setHotspotEnabled critical error", t);
+        } catch (Exception e) {
+            Log.e(TAG, "setHotspotEnabled critical error", e);
             return 0;
         }
     }
 
     private boolean tryRootMethod(boolean en) {
-        String su = getBin("su");
+        String su = getBin(BIN_SU);
         if (su == null) return false;
 
         try {
@@ -74,8 +77,8 @@ public class HotspotManager {
             }
             if (en) toggleNatAsync(true);
             return true;
-        } catch (Throwable t) {
-            Log.e(TAG, "Root method failed", t);
+        } catch (IOException e) {
+            Log.e(TAG, "Root method failed", e);
             return false;
         }
     }
@@ -92,8 +95,8 @@ public class HotspotManager {
                 return 4;
             }
             return Boolean.TRUE.equals(res) ? 1 : 0;
-        } catch (Throwable t) {
-            Log.e(TAG, "Reflection call failed", t);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            Log.e(TAG, "Reflection call failed", e);
             return 0;
         }
     }
@@ -114,8 +117,8 @@ public class HotspotManager {
             Handler handler = new Handler(Looper.getMainLooper());
             try {
                 wm.startLocalOnlyHotspot(new LocalHotspotCallback(this, listener), handler);
-            } catch (Throwable t) {
-                Log.e(TAG, "LocalHotspot start failed", t);
+            } catch (Exception e) {
+                Log.e(TAG, "LocalHotspot start failed", e);
                 if (listener != null) listener.onFailure(-2);
             }
         } else if (listener != null) {
@@ -129,8 +132,8 @@ public class HotspotManager {
                 hotspotReservation.close();
                 hotspotReservation = null;
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Error closing hotspot", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Error closing hotspot", e);
         }
         toggleNatAsync(false);
     }
@@ -142,8 +145,8 @@ public class HotspotManager {
             Method m = wm.getClass().getDeclaredMethod("getWifiApState");
             Object res = m.invoke(wm);
             return res instanceof Integer && (Integer) res >= 12;
-        } catch (Throwable t) {
-            Log.e(TAG, "Error getting hotspot state", t);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            Log.e(TAG, "Error getting hotspot state", e);
             return false;
         }
     }
@@ -152,15 +155,15 @@ public class HotspotManager {
         new Thread(() -> {
             try {
                 toggleNat(en);
-            } catch (Throwable t) {
-                Log.e(TAG, "toggleNat thread error", t);
+            } catch (Exception e) {
+                Log.e(TAG, "toggleNat thread error", e);
             }
         }).start();
     }
 
     private void toggleNat(boolean en) {
-        String su = getBin("su");
-        String ipt = getBin("iptables");
+        String su = getBin(BIN_SU);
+        String ipt = getBin(BIN_IPTABLES);
         if (su != null && ipt != null) {
             executeNatCommands(su, ipt, en);
         }
@@ -182,15 +185,16 @@ public class HotspotManager {
                 os.flush();
             }
             pr.waitFor();
-        } catch (Throwable t) {
-            Log.e(TAG, "NAT commands failed", t);
+        } catch (IOException | InterruptedException e) {
+            Log.e(TAG, "NAT commands failed", e);
+            Thread.currentThread().interrupt();
         }
     }
 
     public void blockDevice(String mac, boolean b) {
         if (mac == null || !mac.contains(":")) return;
-        String su = getBin("su");
-        String ipt = getBin("iptables");
+        String su = getBin(BIN_SU);
+        String ipt = getBin(BIN_IPTABLES);
         if (su != null && ipt != null) {
             try {
                 Process pr = new ProcessBuilder(su).start();
@@ -199,16 +203,16 @@ public class HotspotManager {
                     os.writeBytes(ipt + " -" + op + " FORWARD -m mac --mac-source " + mac + " -j DROP\n" + EXIT_CMD);
                     os.flush();
                 }
-            } catch (Throwable t) {
-                Log.e(TAG, "Block failed", t);
+            } catch (IOException e) {
+                Log.e(TAG, "Block failed", e);
             }
         }
     }
 
     public void limitSpeed(String mac, int k) {
         if (mac == null) return;
-        String su = getBin("su");
-        String tc = getBin("tc");
+        String su = getBin(BIN_SU);
+        String tc = getBin(BIN_TC);
         if (su != null && tc != null) {
             try {
                 Process pr = new ProcessBuilder(su).start();
@@ -218,8 +222,8 @@ public class HotspotManager {
                     os.writeBytes(EXIT_CMD);
                     os.flush();
                 }
-            } catch (Throwable t) {
-                Log.e(TAG, "Limit failed", t);
+            } catch (IOException e) {
+                Log.e(TAG, "Limit failed", e);
             }
         }
     }
@@ -245,7 +249,7 @@ class LocalHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
                 } else {
                     listener.onStarted("Unknown", "");
                 }
-            } catch (Throwable t) {
+            } catch (Exception e) {
                 listener.onStarted("Error", "");
             }
             manager.toggleNatAsync(true);
@@ -258,7 +262,7 @@ class LocalHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
         if (listener != null) {
             try {
                 listener.onStopped();
-            } catch (Throwable ignored) {}
+            } catch (Exception ignored) {}
         }
         manager.toggleNatAsync(false);
     }
@@ -268,7 +272,7 @@ class LocalHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
         if (listener != null) {
             try {
                 listener.onFailure(reason);
-            } catch (Throwable ignored) {}
+            } catch (Exception ignored) {}
         }
     }
 }

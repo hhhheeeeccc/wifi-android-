@@ -56,6 +56,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int VPN_REQUEST_CODE = 200;
+    private static final String PKG_SETTINGS = "com.android.settings";
+    private static final String CLASS_TETHER_SETTINGS = "com.android.settings.TetherSettings";
 
     private TextView statusLabel, proxyHostTxt, proxyInstructionTxt;
     private EditText ssidInput, passInput;
@@ -83,15 +85,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             new Handler(Looper.getMainLooper()).post(() -> {
                 try {
                     Toast.makeText(getApplicationContext(), "حدث خطأ: " + throwable.getMessage(), Toast.LENGTH_LONG).show();
-                } catch (Throwable ignored) {}
+                } catch (Exception ignored) {}
             });
         });
 
         super.onCreate(savedInstanceState);
         try {
             setContentView(R.layout.activity_main);
-        } catch (Throwable t) {
-            Log.e(TAG, "setContentView failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "setContentView failed", e);
             return;
         }
 
@@ -104,8 +106,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             hotspotRepo = new HotspotRepository(this);
             deviceAdapter = new DeviceAdapter(this, new ArrayList<>());
             initViews();
-        } catch (Throwable t) {
-            Log.e(TAG, "Initialization failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Initialization failed", e);
         }
 
         mainHandler.postDelayed(this::setupService, 1000);
@@ -143,8 +145,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 startService(intent);
             }
             bindService(intent, this, Context.BIND_AUTO_CREATE);
-        } catch (Throwable t) {
-            Log.e(TAG, "Service setup failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Service setup failed", e);
         }
     }
 
@@ -157,8 +159,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
                 }
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Permission check failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Permission check failed", e);
         }
     }
 
@@ -170,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else if (id == R.id.scanConnectBtn) {
             try {
                 new IntentIntegrator(this).initiateScan();
-            } catch (Throwable t) {
+            } catch (Exception e) {
                 Toast.makeText(this, "خطأ في بدء الماسح", Toast.LENGTH_SHORT).show();
             }
         } else if (id == R.id.toggleVpnBtn) {
@@ -190,8 +192,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 startVpnService();
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "VPN toggle failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "VPN toggle failed", e);
         }
     }
 
@@ -202,8 +204,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             intent.putExtra("proxy_port", lastProxyPort);
             startService(intent);
             Toast.makeText(this, R.string.vpn_started, Toast.LENGTH_SHORT).show();
-        } catch (Throwable t) {
-            Log.e(TAG, "VPN start failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "VPN start failed", e);
         }
     }
 
@@ -211,7 +213,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         try {
             LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
             return lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
-        } catch (Throwable t) {
+        } catch (Exception e) {
             return false;
         }
     }
@@ -240,8 +242,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
             threadPool.execute(new ToggleHotspotRunnable(hotspotManager, true, ssid, pass, mainHandler, this));
-        } catch (Throwable t) {
-            Log.e(TAG, "Hotspot toggle failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Hotspot toggle failed", e);
         }
     }
 
@@ -258,7 +260,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 openSystemTethering();
             }
-        } catch (Throwable t) {
+        } catch (Exception e) {
             openSystemTethering();
         }
     }
@@ -267,13 +269,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (isFinishing()) return;
         Toast.makeText(this, R.string.hotspot_manual_instruction, Toast.LENGTH_LONG).show();
         Intent intent = new Intent();
-        intent.setClassName("com.android.settings", "com.android.settings.TetherSettings");
+        intent.setClassName(PKG_SETTINGS, CLASS_TETHER_SETTINGS);
         try {
             startActivity(intent);
-        } catch (Throwable t) {
+        } catch (Exception e) {
             try {
                 startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
-            } catch (Throwable ignored) {}
+            } catch (Exception ignored) {}
         }
     }
 
@@ -319,8 +321,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         qrCodeImg.setVisibility(View.VISIBLE);
                     }
                 });
-            } catch (Throwable t) {
-                Log.e(TAG, "QR generation failed", t);
+            } catch (Exception e) {
+                Log.e(TAG, "QR generation failed", e);
             }
         });
     }
@@ -355,8 +357,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 scanActive = false;
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "UI update failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "UI update failed", e);
         }
     }
 
@@ -370,7 +372,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (isBound) {
             try {
                 unbindService(this);
-            } catch (Throwable ignored) {}
+            } catch (Exception ignored) {}
             isBound = false;
         }
         super.onDestroy();
@@ -388,7 +390,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } else {
                     super.onActivityResult(requestCode, resultCode, data);
                 }
-            } catch (Throwable t) {
+            } catch (Exception e) {
                 super.onActivityResult(requestCode, resultCode, data);
             }
         }
@@ -404,14 +406,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 Toast.makeText(this, R.string.invalid_qr, Toast.LENGTH_SHORT).show();
             }
-        } catch (Throwable t) {
+        } catch (Exception e) {
             Toast.makeText(this, R.string.invalid_qr, Toast.LENGTH_SHORT).show();
         }
     }
 
     private void connectToWifiWithProxy(String ssid, String pass, String ph, int pp) {
         try {
-            if (Build.VERSION.SDK_INT >= 29) {
+            if (Build.VERSION.SDK_INT >= 29 && wm != null) {
                 Toast.makeText(this, R.string.connecting_wifi, Toast.LENGTH_SHORT).show();
                 WifiNetworkSuggestion.Builder builder = new WifiNetworkSuggestion.Builder()
                         .setSsid(ssid).setWpa2Passphrase(pass);
@@ -421,8 +423,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         ProxyInfo proxy = ProxyInfo.buildDirectProxy(ph, pp);
                         Method setProxyMethod = builder.getClass().getMethod("setHttpProxy", ProxyInfo.class);
                         setProxyMethod.invoke(builder, proxy);
-                    } catch (Throwable t) {
-                        Log.e(TAG, "Proxy suggestion failed", t);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Proxy suggestion failed", e);
                     }
                 }
 
@@ -436,7 +438,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 Toast.makeText(this, "هذه الخاصية تتطلب أندرويد 10 فما فوق", Toast.LENGTH_SHORT).show();
             }
-        } catch (Throwable t) {
+        } catch (Exception e) {
             Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show();
         }
     }
@@ -452,8 +454,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             usageService = (UsageMonitorService) binder.getService();
             isBound = true;
             updateUI();
-        } catch (Throwable t) {
-            Log.e(TAG, "Service link failed", t);
+        } catch (Exception e) {
+            Log.e(TAG, "Service link failed", e);
         }
     }
 
