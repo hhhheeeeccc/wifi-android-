@@ -17,9 +17,9 @@
     <string name="hotspot_manual_instruction">يرجى تفعيل نقطة الاتصال يدوياً من الإعدادات إذا لم تعمل.</string>
     <string name="local_only_mode">وضع البروكسي (بدون روت)</string>
     <string name="proxy_info">إعدادات البروكسي</string>
-    <string name="proxy_host">المضيف: %1</string>
+    <string name="proxy_host">المضيف: %1$s</string>
     <string name="proxy_port">المنفذ: 8080</string>
-    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على %1:8080 للوصول للإنترنت وتطبيق القيود.</string>
+    <string name="proxy_instruction">يجب على الأجهزة المتصلة ضبط البروكسي يدوياً على %1$s:8080 للوصول للإنترنت وتطبيق القيود.</string>
     <string name="scan_to_connect">مسح للاتصال (تلقائي)</string>
     <string name="connecting_wifi">جاري الاتصال بالشبكة...</string>
     <string name="connection_failed">فشل الاتصال بالشبكة</string>
