@@ -25,4 +25,6 @@
     <string name="connection_failed">Connection failed</string>
     <string name="invalid_qr">Invalid QR code format</string>
     <string name="network_added_success">Network suggestion added successfully</string>
+    <string name="enable_vpn_tunnel">Enable VPN Tunnel (NetShare)</string>
+    <string name="vpn_started">VPN Tunnel started</string>
 </resources>

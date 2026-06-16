@@ -16,6 +16,9 @@ import java.util.concurrent.Executors;
 public class ProxyManager {
     public static final String IP_STANDARD_AP = "192.168.43.1";
     public static final String IP_LOCAL_ONLY = "192.168.49.1";
+    public static final String IP_VPN_VIRTUAL = "10.0.0.2";
+    public static final String DNS_GOOGLE = "8.8.8.8";
+    public static final int DEFAULT_PROXY_PORT = 8080;
 
     private final HotspotRepository repo;
     private ServerSocket serverSocket;
